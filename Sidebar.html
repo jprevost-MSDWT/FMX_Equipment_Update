@@ -1,0 +1,151 @@
+<!--
+Project Name: FMX Equipment Import
+Project Version: 1.1
+Filename: Sidebar.html
+File Version: 1.1
+Chat link: [Insert Link]
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f2f5;
+        padding: 8px;
+        margin: 0;
+      }
+      .container {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      }
+      /* Style for the tab container */
+      .tab {
+        overflow: hidden;
+        border-bottom: 1px solid #ccc;
+        background-color: #f1f1f1;
+        border-radius: 4px 4px 0 0;
+      }
+      /* Style the buttons inside the tab */
+      .tab button {
+        background-color: inherit;
+        float: left;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        padding: 10px 16px;
+        transition: 0.3s;
+        font-size: 0.9em;
+        width: 50%;
+        border-radius: 4px 4px 0 0;
+        font-weight: bold;
+        color: #5f6368;
+      }
+      /* Change background color of buttons on hover */
+      .tab button:hover {
+        background-color: #ddd;
+      }
+      /* Create an active/current tablink class */
+      .tab button.active {
+        background-color: #ccc;
+        color: #000;
+      }
+      /* Style the tab content */
+      .tabcontent {
+        display: none;
+        padding: 6px 0px;
+        border-top: none;
+      }
+      /* General button styling */
+      .action-button {
+        width: 100%;
+        padding: 10px;
+        margin-top: 8px;
+        border: none;
+        background-color: #8ab4f8; /* Lighter base blue */
+        color: #000000;
+        font-weight: bold;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9em;
+        text-align: left;
+        padding-left: 12px;
+        transition: background-color 0.2s, color 0.2s;
+      }
+      .action-button:hover {
+        background-color: #3367D6; /* Darker blue on hover */
+        color: #ffffff; /* White text on hover */
+      }
+      /* Style for the instructional text */
+      .instructions {
+        display: none;
+        margin-top: 15px;
+        font-size: 0.8em;
+        color: #5f6368;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Tab Links -->
+      <div class="tab">
+        <button class="tablinks" onclick="openTab(event, 'MainActions')" id="defaultOpen">Actions</button>
+        <button class="tablinks" onclick="openTab(event, 'Help')">Help</button>
+      </div>
+
+      <!-- Tab Content: Main Actions -->
+      <div id="MainActions" class="tabcontent">
+        <button class="action-button" onclick="runImport()">Import Excel File</button>
+      </div>
+
+      <!-- Tab Content: Help -->
+      <div id="Help" class="tabcontent">
+         <div class="instructions" style="display:block;">
+           <p><b>How to use:</b></p>
+           <ol>
+             <li>Click "Import Excel File".</li>
+             <li>Enter the Google Drive File ID when prompted.</li>
+             <li>The data will be loaded into the "RAWImport" sheet.</li>
+           </ol>
+         </div>
+      </div>
+    </div>
+
+    <script>
+      function runImport() {
+        // Calls the server-side function in ImportExport.gs
+        google.script.run.promptForImport();
+      }
+
+      function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        
+        // Hide all tab content
+        tabcontent = document.getElementsByClassName("tabcontent");
+        for (i = 0; i < tabcontent.length; i++) {
+          tabcontent[i].style.display = "none";
+        }
+        
+        // Deactivate all tab links
+        tablinks = document.getElementsByClassName("tablinks");
+        for (i = 0; i < tablinks.length; i++) {
+          tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+
+        // Show the current tab's content
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+      }
+
+      // Initialize default tab
+      document.getElementById("defaultOpen").click();
+    </script>
+  </body>
+</html>
