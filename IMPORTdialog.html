@@ -2,10 +2,9 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 1.00
 Filename: IMPORTdialog.html
-File Version: 1.00
+File Version: 1.01
 Chat link: [Insert Link]
 -->
-
 
 <!DOCTYPE html>
 <html>
@@ -24,6 +23,7 @@ Chat link: [Insert Link]
       justify-content: center;
       height: calc(100vh - 40px);
       box-sizing: border-box;
+      overflow: hidden;
     }
     #dropZone {
       width: 100%;
@@ -47,32 +47,41 @@ Chat link: [Insert Link]
     #fileInput {
       display: none;
     }
-    #buttonContainer {
-      margin-top: 20px;
-      width: 100%;
+    /* Toast Notification Animation */
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .toast-animate {
+      animation: slideUp 0.3s ease-out forwards;
     }
   </style>
 </head>
 <body>
 
   <div id="dropZone">
-    <span>Drag & Drop a CSV/TXT file here<br>or click to select</span>
+    <span>Drag & Drop a CSV/TXT/XLSX file here<br>or click to select</span>
   </div>
-  <input type="file" id="fileInput" accept=".csv,.txt,.tsv">
+  <input type="file" id="fileInput" accept=".csv,.txt,.tsv,.xlsx,.xls">
 
-  <div id="buttonContainer">
-    <button id="importBtn" disabled class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed">
+  <div id="buttonContainer" class="mt-5 w-full">
+    <button id="importBtn" disabled class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
       Import
     </button>
   </div>
 
-  <script>
-    // Configuration for post-import processing
-    const shouldProcessAfterImport = false; 
+  <!-- Toast Container -->
+  <div id="toast" class="hidden fixed bottom-4 left-4 right-4 p-3 rounded-lg text-white text-sm font-medium shadow-lg toast-animate z-50">
+    <span id="toastMessage"></span>
+  </div>
 
+  <script>
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const importBtn = document.getElementById('importBtn');
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    
     let selectedFile = null;
 
     dropZone.addEventListener('click', () => fileInput.click());
@@ -100,6 +109,9 @@ Chat link: [Insert Link]
       handleFile(e.dataTransfer.files[0]);
     });
 
+    /**
+     * Updates the UI when a file is selected.
+     */
     function handleFile(file) {
       if (file) {
         selectedFile = file;
@@ -107,26 +119,41 @@ Chat link: [Insert Link]
         importBtn.disabled = false;
       }
     }
-    
-    function importSuccess(message) {
-      console.log(message);
 
-      if (shouldProcessAfterImport) {
-        importBtn.textContent = 'Processing...';
-        
-        google.script.run
-          .withSuccessHandler(function() {
-            google.script.host.close();
-          })
-          .withFailureHandler(importFailure)
-          .ProcessStages(); 
-      } else {
-        google.script.host.close();
+    /**
+     * Displays a toast message instead of a browser alert.
+     */
+    function showToast(msg, isError = false) {
+      toastMessage.textContent = msg;
+      toast.classList.remove('hidden', 'bg-red-500', 'bg-green-600');
+      toast.classList.add(isError ? 'bg-red-500' : 'bg-green-600');
+      
+      // If it's an error, hide it after 5 seconds. Success stays until close.
+      if (isError) {
+        setTimeout(() => {
+          toast.classList.add('hidden');
+        }, 5000);
       }
     }
 
+    /**
+     * Callback for successful import.
+     */
+    function importSuccess(status) {
+      showToast(status, false);
+      importBtn.textContent = 'Success!';
+      
+      // Auto-close dialog after 1.5 seconds
+      setTimeout(() => {
+        google.script.host.close();
+      }, 1500);
+    }
+
+    /**
+     * Callback for failed import.
+     */
     function importFailure(error) {
-      alert('Error during import or processing: ' + error.message);
+      showToast('Error: ' + error.message, true);
       importBtn.disabled = false;
       importBtn.textContent = 'Import';
     }
@@ -135,19 +162,29 @@ Chat link: [Insert Link]
       if (!selectedFile) return;
 
       importBtn.disabled = true;
-      importBtn.textContent = 'Importing...';
+      importBtn.textContent = 'Uploading...';
 
       const reader = new FileReader();
+      
+      // For Excel and large CSVs, we read as DataURL (Base64) to pass to GS
       reader.onload = (e) => {
         const fileContent = e.target.result;
         const fileType = selectedFile.type;
+        const fileName = selectedFile.name;
         
         google.script.run
           .withSuccessHandler(importSuccess)
           .withFailureHandler(importFailure)
-          .importData(fileContent, fileType);
+          .importData(fileContent, fileType, fileName);
       };
-      reader.readAsText(selectedFile);
+      
+      reader.onerror = () => {
+        showToast("Error reading file locally.", true);
+        importBtn.disabled = false;
+        importBtn.textContent = 'Import';
+      };
+
+      reader.readAsDataURL(selectedFile);
     });
   </script>
 </body>
