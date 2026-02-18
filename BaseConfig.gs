@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 1.00
 Filename: BaseConfig.gs
-File Version: 1.01
+File Version: 1.02
 Chat link: [Insert Link]
 */
 
@@ -17,6 +17,7 @@ const CONFIG = {
   },
   reportRanges: {
     placeholderRange1: 7,  // This is a placeholder for the real value later
+    importHeaders: "Import_Headers" // Header title to locate the list column in Data sheet
   },
   columnNames: {
     ItemID: ["ID*"],
