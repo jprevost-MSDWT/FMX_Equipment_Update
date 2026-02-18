@@ -1,8 +1,8 @@
 /*
 Project Name: FMX Equipment Import non-Gem
-Project Version: 1.00
+Project Version: 2.00
 Filename: ImportExport.gs
-File Version: 1.11
+File Version: 2.01
 Chat link: [Insert Link]
 */
 
