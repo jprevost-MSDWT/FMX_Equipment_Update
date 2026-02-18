@@ -1,10 +1,11 @@
 <!--
-Project Name: FMX Equipment Import
-Project Version: 1.1
+Project Name: FMX Equipment Import non-Gem
+Project Version: 1.00
 Filename: Sidebar.html
-File Version: 1.1
+File Version: 1.02
 Chat link: [Insert Link]
 -->
+
 <!DOCTYPE html>
 <html>
   <head>
@@ -97,7 +98,7 @@ Chat link: [Insert Link]
       <!-- Tab Links -->
       <div class="tab">
         <button class="tablinks" onclick="openTab(event, 'MainActions')" id="defaultOpen">Actions</button>
-        <button class="tablinks" onclick="openTab(event, 'Help')">Help</button>
+        <button class="tablinks" onclick="openTab(event, 'Settings')">Settings</button>
       </div>
 
       <!-- Tab Content: Main Actions -->
@@ -105,15 +106,10 @@ Chat link: [Insert Link]
         <button class="action-button" onclick="runImport()">Import Excel File</button>
       </div>
 
-      <!-- Tab Content: Help -->
-      <div id="Help" class="tabcontent">
+      <!-- Tab Content: Settings -->
+      <div id="Settings" class="tabcontent">
          <div class="instructions" style="display:block;">
-           <p><b>How to use:</b></p>
-           <ol>
-             <li>Click "Import Excel File".</li>
-             <li>Enter the Google Drive File ID when prompted.</li>
-             <li>The data will be loaded into the "RAWImport" sheet.</li>
-           </ol>
+           <p>Settings configuration will be available here.</p>
          </div>
       </div>
     </div>
