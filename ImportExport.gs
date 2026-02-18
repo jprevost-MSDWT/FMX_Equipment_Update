@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 1.00
 Filename: ImportExport.gs
-File Version: 1.09
+File Version: 1.11
 Chat link: [Insert Link]
 */
 
@@ -121,16 +121,30 @@ function importData(dataUrl, fileType, fileName) {
     sheet.clear();
     sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
 
-    // 4. Extract Headers (Row 3 / Index 2)
-    if (data.length < 3) {
-      return "Warning: File imported but too short to contain standard headers.";
+    // 4. Dynamically Find Headers
+    // Search for the row where the first column matches the ItemID config (e.g., "ID*")
+    const targetHeaderID = CONFIG.columnNames.ItemID[0];
+    let headerRow = [];
+    let foundHeader = false;
+
+    for (let i = 0; i < data.length; i++) {
+      // Check first column, trimmed
+      if (data[i][0] && data[i][0].toString().trim() === targetHeaderID) {
+        headerRow = data[i];
+        foundHeader = true;
+        break;
+      }
     }
 
-    const headerRow = data[2]; 
+    if (!foundHeader) {
+      return `Warning: Imported ${data.length} rows, but could not find header row starting with '${targetHeaderID}'. Headers not extracted.`;
+    }
+
     // Filter out empty headers or non-string garbage
     const cleanHeaders = headerRow.filter(h => h && h.toString().trim() !== "");
 
     // Update the Data sheet with these headers
+    console.log(`Extracting ${cleanHeaders.length} headers.`);
     updateDataSheetHeaders(cleanHeaders);
 
     return `Success: Imported ${data.length} rows from ${name}. Headers extracted.`;
@@ -154,12 +168,15 @@ function updateDataSheetHeaders(headers) {
     return;
   }
 
+  // 1. Find the column index for "Import_Headers"
+  // We assume headers are in Row 1 of the Data sheet
   const lastCol = dataSheet.getLastColumn();
   if (lastCol === 0) return; 
 
   const sheetHeaders = dataSheet.getRange(1, 1, 1, lastCol).getValues()[0];
   const targetHeaderName = CONFIG.reportRanges.Import_Headers;
   
+  // indexOf is 0-based, so we add 1 for the spreadsheet column index
   const colIndex = sheetHeaders.indexOf(targetHeaderName);
 
   if (colIndex === -1) {
@@ -167,15 +184,23 @@ function updateDataSheetHeaders(headers) {
     return;
   }
   const colNumber = colIndex + 1;
+  console.log(`Found "${targetHeaderName}" at Column ${colNumber}.`);
 
+  // 2. Clear existing data below the header in that specific column
   const maxRows = dataSheet.getMaxRows();
   if (maxRows > 1) {
+    // Clear from Row 2 down to the bottom
     dataSheet.getRange(2, colNumber, maxRows - 1, 1).clearContent();
   }
 
+  // 3. Paste the new headers vertically
   if (headers && headers.length > 0) {
+    // filter out empty headers if necessary, or keep them to maintain index alignment
+    // Transpose 1D array to 2D array [[val], [val]]
     const outputValues = headers.map(h => [h]);
+    
     dataSheet.getRange(2, colNumber, outputValues.length, 1).setValues(outputValues);
+    console.log(`Pasted ${headers.length} headers to Data sheet.`);
   }
 }
 
