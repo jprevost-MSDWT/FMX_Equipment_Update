@@ -1,8 +1,8 @@
 /*
 Project Name: FMX Equipment Import non-Gem
-Project Version: 1.00
+Project Version: 2.00
 Filename: BaseConfig.gs
-File Version: 1.04
+File Version: 2.01
 Chat link: [Insert Link]
 */
 
@@ -22,7 +22,8 @@ const CONFIG = {
   namedRanges: {
     Import_Headers: "Import_Headers",
     Import_Header_Exclude: "Import_Header_Exclude",
-    Import_Headers_Selection: "Import_Headers_Selection"
+    Import_Headers_Selection: "Import_Headers_Selection",
+    Selected_Headers: "Selected_Headers"
   },
   columnNames: {
     ItemID: ["ID*"],
@@ -114,4 +115,65 @@ function SetupNamedRanges() {
       }
     }
   });
+}
+
+/**
+ * Fetches values from the named range "Import_Headers_Selection".
+ * These are the headers extracted from the imported file.
+ * @return {string[]} A 1D array of header names.
+ */
+function getImportHeaderOptions() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // Use CONFIG.namedRanges.Import_Headers_Selection to get the header options
+  const rangeName = CONFIG.namedRanges.Import_Headers_Selection;
+  const range = ss.getRangeByName(rangeName);
+  
+  if (!range) {
+    // If named range is missing, try to fallback or return empty
+    return [];
+  }
+  
+  const values = range.getValues();
+  // Flatten and filter empty values
+  return values.flat().filter(function(item) {
+    return item !== "" && item !== null;
+  });
+}
+
+/**
+ * Saves the selected headers from the Sidebar to the 'Selected_Headers' column in Data sheet.
+ * @param {string[]} selectedHeaders - Array of header names selected by the user.
+ */
+function saveSelectedHeaders(selectedHeaders) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.sheets.data);
+  if (!sheet) throw new Error("Data sheet not found.");
+
+  // Identify target column by header name defined in CONFIG
+  const headerName = CONFIG.namedRanges.Selected_Headers;
+  const lastCol = sheet.getLastColumn();
+  if (lastCol === 0) throw new Error("Data sheet is empty.");
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const colIndex = headers.indexOf(headerName);
+
+  if (colIndex === -1) {
+    throw new Error(`Column "${headerName}" not found in Data sheet.`);
+  }
+  
+  const colNumber = colIndex + 1;
+  const maxRows = sheet.getMaxRows();
+
+  // Clear existing content (row 2 down) in that specific column
+  if (maxRows > 1) {
+    sheet.getRange(2, colNumber, maxRows - 1, 1).clearContent();
+  }
+
+  // Write new values
+  if (selectedHeaders && selectedHeaders.length > 0) {
+    // Transform 1D array to 2D array
+    const output = selectedHeaders.map(h => [h]);
+    sheet.getRange(2, colNumber, output.length, 1).setValues(output);
+  }
 }

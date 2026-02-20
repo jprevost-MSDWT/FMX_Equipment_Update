@@ -1,8 +1,8 @@
 <!--
 Project Name: FMX Equipment Import non-Gem
-Project Version: 1.00
+Project Version: 2.00
 Filename: Sidebar.html
-File Version: 1.02
+File Version: 2.01
 Chat link: [Insert Link]
 -->
 
@@ -10,137 +10,172 @@ Chat link: [Insert Link]
 <html>
   <head>
     <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        background-color: #f0f2f5;
-        padding: 8px;
-        margin: 0;
+      body { font-family: Arial, sans-serif; background-color: #f0f2f5; padding: 8px; margin: 0; }
+      .container { background-color: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+      .tab { overflow: hidden; border-bottom: 1px solid #ccc; background-color: #f1f1f1; border-radius: 4px 4px 0 0; display: flex; }
+      .tab button { background-color: inherit; border: none; outline: none; cursor: pointer; padding: 10px 16px; transition: 0.3s; font-size: 0.9em; flex: 1; border-radius: 4px 4px 0 0; font-weight: bold; color: #5f6368; }
+      .tab button:hover { background-color: #ddd; }
+      .tab button.active { background-color: #ccc; color: #000; }
+      .tabcontent { display: none; padding: 12px 0px; border-top: none; }
+      .action-button { width: 100%; padding: 12px; margin-top: 8px; border: none; background-color: #8ab4f8; color: #000000; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 0.9em; text-align: left; transition: background-color 0.2s, color 0.2s; }
+      .action-button:hover { background-color: #3367D6; color: #ffffff; }
+      .instructions { margin-top: 15px; font-size: 0.8em; color: #5f6368; padding: 10px; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; }
+      .checkbox-group { display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; margin-top: 10px; padding: 8px; border: 1px solid #eee; border-radius: 4px; background: #fff; }
+      .checkbox-label { display: flex; align-items: center; font-size: 0.9em; color: #333; cursor: pointer; user-select: none; }
+      .checkbox-label input { margin-right: 12px; width: 16px; height: 16px; cursor: pointer; }
+      .loading-text { color: #666; font-style: italic; padding: 10px; text-align: center; }
+      .refresh-btn { float: right; cursor: pointer; border: none; background: none; color: #1a73e8; font-size: 0.9em; padding: 0; font-weight: bold; }
+      .refresh-btn:hover { text-decoration: underline; }
+
+      /* Toast Notifications */
+      #toast-container {
+        visibility: hidden; 
+        min-width: 250px; 
+        margin-left: -125px; 
+        background-color: #333; 
+        color: #fff; 
+        text-align: center; 
+        border-radius: 4px; 
+        padding: 16px; 
+        position: fixed; 
+        z-index: 1; 
+        left: 50%; 
+        bottom: 30px; 
+        font-size: 14px;
+        opacity: 0;
+        transition: opacity 0.5s, bottom 0.5s;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
       }
-      .container {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      #toast-container.show {
+        visibility: visible;
+        opacity: 1;
+        bottom: 50px;
       }
-      /* Style for the tab container */
-      .tab {
-        overflow: hidden;
-        border-bottom: 1px solid #ccc;
-        background-color: #f1f1f1;
-        border-radius: 4px 4px 0 0;
-      }
-      /* Style the buttons inside the tab */
-      .tab button {
-        background-color: inherit;
-        float: left;
-        border: none;
-        outline: none;
-        cursor: pointer;
-        padding: 10px 16px;
-        transition: 0.3s;
-        font-size: 0.9em;
-        width: 50%;
-        border-radius: 4px 4px 0 0;
-        font-weight: bold;
-        color: #5f6368;
-      }
-      /* Change background color of buttons on hover */
-      .tab button:hover {
-        background-color: #ddd;
-      }
-      /* Create an active/current tablink class */
-      .tab button.active {
-        background-color: #ccc;
-        color: #000;
-      }
-      /* Style the tab content */
-      .tabcontent {
-        display: none;
-        padding: 6px 0px;
-        border-top: none;
-      }
-      /* General button styling */
-      .action-button {
-        width: 100%;
-        padding: 10px;
-        margin-top: 8px;
-        border: none;
-        background-color: #8ab4f8; /* Lighter base blue */
-        color: #000000;
-        font-weight: bold;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.9em;
-        text-align: left;
-        padding-left: 12px;
-        transition: background-color 0.2s, color 0.2s;
-      }
-      .action-button:hover {
-        background-color: #3367D6; /* Darker blue on hover */
-        color: #ffffff; /* White text on hover */
-      }
-      /* Style for the instructional text */
-      .instructions {
-        display: none;
-        margin-top: 15px;
-        font-size: 0.8em;
-        color: #5f6368;
-        padding: 10px;
-        background-color: #f8f9fa;
-        border-radius: 4px;
-        border: 1px solid #dee2e6;
-      }
+      #toast-container.error { background-color: #d93025; }
+      #toast-container.success { background-color: #188038; }
     </style>
   </head>
   <body>
     <div class="container">
-      <!-- Tab Links -->
       <div class="tab">
-        <button class="tablinks" onclick="openTab(event, 'MainActions')" id="defaultOpen">Actions</button>
+        <button class="tablinks active" onclick="openTab(event, 'MainActions')" id="defaultOpen">Actions</button>
         <button class="tablinks" onclick="openTab(event, 'Settings')">Settings</button>
       </div>
-
-      <!-- Tab Content: Main Actions -->
-      <div id="MainActions" class="tabcontent">
+      <div id="MainActions" class="tabcontent" style="display: block;">
         <button class="action-button" onclick="runImport()">Import Excel File</button>
       </div>
-
-      <!-- Tab Content: Settings -->
       <div id="Settings" class="tabcontent">
-         <div class="instructions" style="display:block;">
-           <p>Settings configuration will be available here.</p>
+         <div class="instructions">
+           <div style="display:flex; justify-content:space-between; align-items:center;">
+             <strong>Import Headers:</strong>
+             <button class="refresh-btn" onclick="loadSettings()" title="Reload list from spreadsheet">&#x21bb; Refresh</button>
+           </div>
+           <p style="margin: 5px 0; font-size: 0.9em;">Select the headers you wish to include:</p>
+           <div id="settings-container" class="checkbox-group">
+             <div class="loading-text">Loading options from Spreadsheet...</div>
+           </div>
          </div>
+         <button class="action-button" onclick="saveSettings()">Apply Selection</button>
       </div>
     </div>
 
+    <!-- Toast Notification Element -->
+    <div id="toast-container"></div>
+
     <script>
-      function runImport() {
-        // Calls the server-side function in ImportExport.gs
-        google.script.run.promptForImport();
+      var settingsLoaded = false;
+      function runImport() { google.script.run.withFailureHandler(showError).promptForImport(); }
+      
+      function saveSettings() {
+        const checkboxes = document.querySelectorAll('#settings-container input[type="checkbox"]:checked');
+        const selectedValues = Array.from(checkboxes).map(cb => cb.value);
+        
+        if (selectedValues.length === 0) { 
+          showToast("Please select at least one header.", true); 
+          return; 
+        }
+        
+        const btn = document.querySelector('button[onclick="saveSettings()"]');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Saving...";
+
+        google.script.run
+          .withSuccessHandler(function() {
+             showToast("Selection saved successfully!", false);
+             btn.disabled = false;
+             btn.textContent = originalText;
+          })
+          .withFailureHandler(function(err) {
+             showError(err);
+             btn.disabled = false;
+             btn.textContent = originalText;
+          })
+          .saveSelectedHeaders(selectedValues);
       }
 
       function openTab(evt, tabName) {
         var i, tabcontent, tablinks;
-        
-        // Hide all tab content
         tabcontent = document.getElementsByClassName("tabcontent");
-        for (i = 0; i < tabcontent.length; i++) {
-          tabcontent[i].style.display = "none";
-        }
-        
-        // Deactivate all tab links
+        for (i = 0; i < tabcontent.length; i++) tabcontent[i].style.display = "none";
         tablinks = document.getElementsByClassName("tablinks");
-        for (i = 0; i < tablinks.length; i++) {
-          tablinks[i].className = tablinks[i].className.replace(" active", "");
-        }
-
-        // Show the current tab's content
+        for (i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
         document.getElementById(tabName).style.display = "block";
         evt.currentTarget.className += " active";
+        if (tabName === 'Settings' && !settingsLoaded) loadSettings();
       }
 
-      // Initialize default tab
+      function loadSettings() {
+        const container = document.getElementById('settings-container');
+        container.innerHTML = '<div class="loading-text">Fetching data...</div>';
+        google.script.run.withSuccessHandler(renderSettings).withFailureHandler(showError).getImportHeaderOptions();
+      }
+
+      function renderSettings(values) {
+        const container = document.getElementById('settings-container');
+        container.innerHTML = ''; 
+        if (!values || values.length === 0) { container.innerHTML = '<div class="loading-text">No values found.</div>'; return; }
+        values.forEach(function(val) {
+          var label = document.createElement('label');
+          label.className = 'checkbox-label';
+          var input = document.createElement('input');
+          input.type = 'checkbox';
+          input.value = val;
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(val));
+          container.appendChild(label);
+        });
+        settingsLoaded = true;
+      }
+
+      function showError(err) { 
+        // Handle error object or string
+        const msg = err.message ? err.message : err;
+        showToast("Error: " + msg, true); 
+      }
+
+      function showToast(message, isError) {
+        var x = document.getElementById("toast-container");
+        x.textContent = message;
+        
+        // Reset classes
+        x.className = "show";
+        if (isError) {
+          x.classList.add("error");
+        } else {
+          x.classList.add("success");
+        }
+        
+        // Hide after 3 seconds
+        setTimeout(function(){ 
+          x.className = x.className.replace("show", ""); 
+          // Remove color classes after animation hides
+          setTimeout(() => { x.className = ""; }, 500); 
+        }, 3000);
+      }
+
       document.getElementById("defaultOpen").click();
     </script>
   </body>
