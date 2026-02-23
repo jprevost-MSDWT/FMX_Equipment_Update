@@ -1,191 +1,97 @@
-<!--
+/*
 Project Name: FMX Equipment Import non-Gem
 Project Version: 2.00
-Filename: IMPORTdialog.html
-File Version: 2.01
+Filename: ImportExport.gs
+File Version: 2.02
 Chat link: [Insert Link]
--->
+*/
 
-<!DOCTYPE html>
-<html>
-<head>
-  <base target="_top">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f8f9fa;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: calc(100vh - 40px);
-      box-sizing: border-box;
-      overflow: hidden;
-    }
-    #dropZone {
-      width: 100%;
-      height: 120px;
-      border: 2px dashed #007bff;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      color: #007bff;
-      font-size: 16px;
-      cursor: pointer;
-      background-color: #e9f3ff;
-      transition: background-color 0.3s, border-color 0.3s;
-    }
-    #dropZone.dragover {
-      background-color: #d1e7ff;
-      border-color: #0056b3;
-    }
-    #fileInput {
-      display: none;
-    }
-    /* Toast Notification Animation */
-    @keyframes slideUp {
-      from { transform: translateY(100%); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    .toast-animate {
-      animation: slideUp 0.3s ease-out forwards;
-    }
-  </style>
-</head>
-<body>
+/**
+ * @file ImportExport.gs
+ * @description Handles Import logic and Header Extraction.
+ */
 
-  <div id="dropZone">
-    <span>Drag & Drop a CSV/TXT/XLSX file here<br>or click to select</span>
-  </div>
-  <input type="file" id="fileInput" accept=".csv,.txt,.tsv,.xlsx,.xls">
+function openImportDialog() {
+  const html = HtmlService.createHtmlOutputFromFile('IMPORTdialog')
+    .setWidth(600)
+    .setHeight(400);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Import Data');
+}
 
-  <div id="buttonContainer" class="mt-5 w-full">
-    <button id="importBtn" disabled class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
-      Import
-    </button>
-  </div>
+function promptForImport() {
+  openImportDialog();
+}
 
-  <!-- Toast Container -->
-  <div id="toast" class="hidden fixed bottom-4 left-4 right-4 p-3 rounded-lg text-white text-sm font-medium shadow-lg toast-animate z-50">
-    <span id="toastMessage"></span>
-  </div>
+function importData(dataUrl, fileType, fileName) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.sheets.import);
+    if (!sheet) throw new Error(`Sheet "${CONFIG.sheets.import}" not found.`);
 
-  <script>
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const importBtn = document.getElementById('importBtn');
-    const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toastMessage');
-    
-    let selectedFile = null;
+    let blob;
+    const name = fileName || "Imported File";
 
-    dropZone.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', (e) => {
-      handleFile(e.target.files[0]);
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZone.classList.add('dragover');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZone.classList.remove('dragover');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZone.classList.remove('dragover');
-      handleFile(e.dataTransfer.files[0]);
-    });
-
-    /**
-     * Updates the UI when a file is selected.
-     */
-    function handleFile(file) {
-      if (file) {
-        selectedFile = file;
-        dropZone.querySelector('span').textContent = `File selected: ${file.name}`;
-        importBtn.disabled = false;
-      }
+    if (dataUrl.indexOf("data:") === 0) {
+      const base64Data = dataUrl.split(',')[1];
+      const decodedBytes = Utilities.base64Decode(base64Data);
+      blob = Utilities.newBlob(decodedBytes, fileType, name);
+    } else {
+      blob = Utilities.newBlob(dataUrl, 'text/csv', name);
     }
 
-    /**
-     * Displays a toast message instead of a browser alert.
-     */
-    function showToast(msg, isError = false) {
-      toastMessage.textContent = msg;
-      toast.classList.remove('hidden', 'bg-red-500', 'bg-green-600');
-      toast.classList.add(isError ? 'bg-red-500' : 'bg-green-600');
-      
-      // If it's an error, hide it after 5 seconds. Success stays until close.
-      if (isError) {
-        setTimeout(() => {
-          toast.classList.add('hidden');
-        }, 5000);
-      }
+    const isExcel = fileType.includes('excel') || 
+                    fileType.includes('spreadsheetml') || 
+                    name.endsWith('.xlsx') || 
+                    name.endsWith('.xls');
+
+    let data = [];
+
+    if (isExcel) {
+      const resource = { title: name, name: name, mimeType: MimeType.GOOGLE_SHEETS };
+      let tempFile = Drive.Files.insert ? Drive.Files.insert(resource, blob) : Drive.Files.create(resource, blob);
+      const tempSs = SpreadsheetApp.openById(tempFile.id);
+      data = tempSs.getSheets()[0].getDataRange().getValues();
+      Drive.Files.remove ? Drive.Files.remove(tempFile.id) : Drive.Files.delete(tempFile.id);
+    } else {
+      data = Utilities.parseCsv(blob.getDataAsString());
     }
 
-    /**
-     * Callback for successful import.
-     */
-    function importSuccess(status) {
-      showToast(status, false);
-      importBtn.textContent = 'Success!';
-      
-      // Auto-close dialog after 1.5 seconds
-      setTimeout(() => {
-        google.script.host.close();
-      }, 1500);
-    }
+    if (!data || data.length === 0) return "Error: No data found.";
 
-    /**
-     * Callback for failed import.
-     */
-    function importFailure(error) {
-      showToast('Error: ' + error.message, true);
-      importBtn.disabled = false;
-      importBtn.textContent = 'Import';
-    }
+    sheet.clear();
+    sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
 
-    importBtn.addEventListener('click', () => {
-      if (!selectedFile) return;
+    const targetHeaderID = CONFIG.columnNames.ItemID[0];
+    let headerRow = data.find(row => row[0] && row[0].toString().trim() === targetHeaderID);
 
-      importBtn.disabled = true;
-      importBtn.textContent = 'Uploading...';
+    if (!headerRow) return "Warning: Data imported, but ID header not found.";
 
-      const reader = new FileReader();
-      
-      // For Excel and large CSVs, we read as DataURL (Base64) to pass to GS
-      reader.onload = (e) => {
-        const fileContent = e.target.result;
-        const fileType = selectedFile.type;
-        const fileName = selectedFile.name;
-        
-        google.script.run
-          .withSuccessHandler(importSuccess)
-          .withFailureHandler(importFailure)
-          .importData(fileContent, fileType, fileName);
-      };
-      
-      reader.onerror = () => {
-        showToast("Error reading file locally.", true);
-        importBtn.disabled = false;
-        importBtn.textContent = 'Import';
-      };
+    const cleanHeaders = headerRow.filter(h => h && h.toString().trim() !== "");
+    updateDataSheetHeaders(cleanHeaders);
 
-      reader.readAsDataURL(selectedFile);
-    });
-  </script>
-</body>
-</html>
+    return `Success: Imported ${data.length} rows. Headers extracted.`;
+  } catch (e) {
+    throw e;
+  }
+}
+
+function updateDataSheetHeaders(headers) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dataSheet = ss.getSheetByName(CONFIG.sheets.data);
+  if (!dataSheet) return;
+
+  const sheetHeaders = dataSheet.getRange(1, 1, 1, dataSheet.getLastColumn()).getValues()[0];
+  const colIndex = sheetHeaders.indexOf(CONFIG.reportRanges.Import_Headers);
+
+  if (colIndex === -1) return;
+  const colNumber = colIndex + 1;
+
+  if (dataSheet.getMaxRows() > 1) {
+    dataSheet.getRange(2, colNumber, dataSheet.getMaxRows() - 1, 1).clearContent();
+  }
+
+  if (headers && headers.length > 0) {
+    const outputValues = headers.map(h => [h]);
+    dataSheet.getRange(2, colNumber, outputValues.length, 1).setValues(outputValues);
+  }
+}
