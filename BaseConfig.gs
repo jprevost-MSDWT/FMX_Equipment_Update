@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 2.00
 Filename: BaseConfig.gs
-File Version: 2.01
+File Version: 2.03
 Chat link: [Insert Link]
 */
 
@@ -16,7 +16,7 @@ const CONFIG = {
     data: "Data"
   },
   reportRanges: {
-    placeholderRange1: 7,  // This is a placeholder for the real value later
+    placeholderRange1: 7,  
     Import_Headers: "Import_Headers"
   },
   namedRanges: {
@@ -30,12 +30,21 @@ const CONFIG = {
     Item_Name: ["Tag*"],
     Item_Type: ["Type*"],
     Item_Building: ["Building*"],
+  },
+  mapping: {
+    // Headers that must ALWAYS be included in Selected_Headers
+    required: ["ID*", "Tag*", "Type*", "Building*"],
+    // Headers selected by default but can be unselected by user
+    default_selected: [
+      "01.1:Manufacturer",
+      "01.2: Model Number",
+      "01.3:Serial Number"
+    ]
   }
 };
 
 /**
  * Creates a custom menu when the spreadsheet opens.
- * Automatically opens the sidebar and verifies environment.
  */
 function onOpen() {
   createCustomMenu();
@@ -68,7 +77,6 @@ function showSidebar() {
 
 /**
  * Verifies that all sheets defined in CONFIG exist.
- * Creates them if they are missing.
  */
 function VerifySheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -83,32 +91,25 @@ function VerifySheets() {
 }
 
 /**
- * Finds the matching header name in the Data sheet and sets that column
- * (minus the header) as the named range.
+ * Maps named ranges based on column headers in the Data sheet.
  */
 function SetupNamedRanges() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.sheets.data);
-
   if (!sheet) return;
 
   const lastCol = sheet.getLastColumn();
-  // If no columns, can't set ranges
   if (lastCol === 0) return;
 
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   const rangesToSetup = CONFIG.namedRanges;
 
-  // Iterate over the keys (Range Names)
   Object.keys(rangesToSetup).forEach(rangeName => {
     const headerName = rangesToSetup[rangeName];
     const colIndex = headers.indexOf(headerName);
-
     if (colIndex !== -1) {
-      // Column found. Define range from Row 2 to Max Row
       const colLetter = colIndex + 1;
-      const numRows = sheet.getMaxRows() - 1; // Exclude header
-
+      const numRows = sheet.getMaxRows() - 1;
       if (numRows > 0) {
         const range = sheet.getRange(2, colLetter, numRows, 1);
         ss.setNamedRange(rangeName, range);
@@ -118,61 +119,70 @@ function SetupNamedRanges() {
 }
 
 /**
- * Fetches values from the named range "Import_Headers_Selection".
- * These are the headers extracted from the imported file.
- * @return {string[]} A 1D array of header names.
+ * Fetches required headers from CONFIG.
+ * @return {string[]}
+ */
+function getRequiredHeaders() {
+  return CONFIG.mapping.required;
+}
+
+/**
+ * Fetches default selected headers from CONFIG.
+ * @return {string[]}
+ */
+function getDefaultSelectedHeaders() {
+  return CONFIG.mapping.default_selected;
+}
+
+/**
+ * Fetches available header options, excluding those that are required
+ * or default-selected (as those are handled separately in UI).
+ * @return {string[]} 
  */
 function getImportHeaderOptions() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  // Use CONFIG.namedRanges.Import_Headers_Selection to get the header options
   const rangeName = CONFIG.namedRanges.Import_Headers_Selection;
   const range = ss.getRangeByName(rangeName);
   
-  if (!range) {
-    // If named range is missing, try to fallback or return empty
-    return [];
-  }
+  if (!range) return [];
   
-  const values = range.getValues();
-  // Flatten and filter empty values
-  return values.flat().filter(function(item) {
-    return item !== "" && item !== null;
+  const required = CONFIG.mapping.required;
+  const defaultSel = CONFIG.mapping.default_selected;
+  const values = range.getValues().flat();
+  
+  // Filter out empty values and values already handled by specific logic
+  return values.filter(item => {
+    return item !== "" && 
+           item !== null && 
+           !required.includes(item) && 
+           !defaultSel.includes(item);
   });
 }
 
 /**
- * Saves the selected headers from the Sidebar to the 'Selected_Headers' column in Data sheet.
- * @param {string[]} selectedHeaders - Array of header names selected by the user.
+ * Saves the selected headers to the Data sheet.
+ * @param {string[]} selectedHeaders - User selected headers.
  */
 function saveSelectedHeaders(selectedHeaders) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.sheets.data);
   if (!sheet) throw new Error("Data sheet not found.");
 
-  // Identify target column by header name defined in CONFIG
   const headerName = CONFIG.namedRanges.Selected_Headers;
   const lastCol = sheet.getLastColumn();
-  if (lastCol === 0) throw new Error("Data sheet is empty.");
-
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   const colIndex = headers.indexOf(headerName);
 
-  if (colIndex === -1) {
-    throw new Error(`Column "${headerName}" not found in Data sheet.`);
-  }
+  if (colIndex === -1) throw new Error(`Column "${headerName}" not found.`);
   
   const colNumber = colIndex + 1;
   const maxRows = sheet.getMaxRows();
 
-  // Clear existing content (row 2 down) in that specific column
   if (maxRows > 1) {
     sheet.getRange(2, colNumber, maxRows - 1, 1).clearContent();
   }
 
-  // Write new values
   if (selectedHeaders && selectedHeaders.length > 0) {
-    // Transform 1D array to 2D array
     const output = selectedHeaders.map(h => [h]);
     sheet.getRange(2, colNumber, output.length, 1).setValues(output);
   }
