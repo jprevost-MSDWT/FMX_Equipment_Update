@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 2.00
 Filename: BaseConfig.gs
-File Version: 2.07
+File Version: 2.08
 Chat link: [Insert Link]
 */
 
@@ -120,6 +120,24 @@ function SetupNamedRanges() {
       }
     }
   });
+}
+
+/**
+ * Consolidates all header settings into a single object for the UI.
+ * This reduces round-trips from the client to the server.
+ * @return {Object} An object containing required, default, and optional header arrays.
+ */
+function getHeaderConfiguration() {
+  try {
+    return {
+      required: getRequiredHeaders(),
+      defaults: getDefaultSelectedHeaders(),
+      optionals: getImportHeaderOptions()
+    };
+  } catch (e) {
+    console.error("Error in getHeaderConfiguration: " + e.message);
+    throw new Error("Failed to load header configuration.");
+  }
 }
 
 /**
