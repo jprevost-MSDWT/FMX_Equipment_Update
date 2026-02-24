@@ -1,8 +1,8 @@
 <!--
 Project Name: FMX Equipment Import non-Gem
-Project Version: 2.00
+Project Version: 3.00
 Filename: Sidebar.html
-File Version: 2.04
+File Version: 3.00
 Chat link: [Insert Link]
 -->
 
@@ -21,21 +21,16 @@ Chat link: [Insert Link]
       .tabcontent { display: none; padding: 12px 0px; border-top: none; }
       .action-button { width: 100%; padding: 12px; margin-top: 8px; border: none; background-color: #8ab4f8; color: #000000; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 0.9em; text-align: left; transition: background-color 0.2s, color 0.2s; }
       .action-button:hover { background-color: #3367D6; color: #ffffff; }
-      
       .instructions { margin-top: 15px; font-size: 0.8em; color: #5f6368; padding: 10px; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; }
-      
       .required-box { margin-bottom: 10px; padding: 8px; background-color: #eef3fe; border-left: 4px solid #3367D6; border-radius: 4px; }
       .required-title { font-weight: bold; font-size: 0.85em; color: #3367D6; margin-bottom: 4px; }
       .required-list { font-size: 0.8em; color: #444; display: flex; flex-wrap: wrap; gap: 5px; }
       .required-item { background: #fff; padding: 2px 6px; border-radius: 3px; border: 1px solid #d1d9e6; }
-
       .checkbox-group { display: flex; flex-direction: column; gap: 10px; max-height: 200px; overflow-y: auto; margin-top: 10px; padding: 8px; border: 1px solid #eee; border-radius: 4px; background: #fff; }
       .checkbox-label { display: flex; align-items: center; font-size: 0.9em; color: #333; cursor: pointer; user-select: none; }
       .checkbox-label input { margin-right: 12px; width: 16px; height: 16px; cursor: pointer; }
-      
       .loading-text { color: #666; font-style: italic; padding: 10px; text-align: center; }
       .refresh-btn { float: right; cursor: pointer; border: none; background: none; color: #1a73e8; font-size: 0.9em; padding: 0; font-weight: bold; }
-
       #toast-container { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: #333; color: #fff; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1; left: 50%; bottom: 30px; font-size: 14px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
       #toast-container.show { visibility: visible; opacity: 1; bottom: 50px; }
       #toast-container.error { background-color: #d93025; }
@@ -48,64 +43,46 @@ Chat link: [Insert Link]
         <button class="tablinks active" onclick="openTab(event, 'MainActions')" id="defaultOpen">Actions</button>
         <button class="tablinks" onclick="openTab(event, 'Settings')">Settings</button>
       </div>
-
       <div id="MainActions" class="tabcontent" style="display: block;">
         <button class="action-button" onclick="runImport()">Import Excel File</button>
       </div>
-
       <div id="Settings" class="tabcontent">
          <div class="instructions">
            <div class="required-box">
              <div class="required-title">Core Headers (Always Included):</div>
-             <div id="required-headers-list" class="required-list">
-               <span class="loading-text">Loading...</span>
-             </div>
+             <div id="required-headers-list" class="required-list"><span class="loading-text">Loading...</span></div>
            </div>
-
            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-             <strong>Selectable Headers:</strong>
+             <strong>Optional Headers:</strong>
              <button class="refresh-btn" onclick="loadSettings()" title="Reload list">&#x21bb; Refresh</button>
            </div>
-           <div id="settings-container" class="checkbox-group">
-             <div class="loading-text">Loading options...</div>
-           </div>
+           <div id="settings-container" class="checkbox-group"><div class="loading-text">Loading options...</div></div>
          </div>
-         <button id="save-settings-btn" class="action-button" onclick="saveSettings()">Apply Selection</button>
+         <button class="action-button" onclick="saveSettings()">Apply Selection</button>
       </div>
     </div>
-
     <div id="toast-container"></div>
-
     <script>
       var settingsLoaded = false;
       var requiredHeaders = [];
-
       function runImport() { google.script.run.withFailureHandler(showError).promptForImport(); }
-      
       function saveSettings() {
         const checkboxes = document.querySelectorAll('#settings-container input[type="checkbox"]:checked');
         const userSelected = Array.from(checkboxes).map(cb => cb.value);
         const finalSelection = [...requiredHeaders, ...userSelected];
-        
-        const btn = document.getElementById('save-settings-btn');
-        const originalText = btn.textContent;
+        const btn = document.querySelector('button[onclick="saveSettings()"]');
         btn.disabled = true;
         btn.textContent = "Saving...";
-
-        google.script.run
-          .withSuccessHandler(function() {
+        google.script.run.withSuccessHandler(function() {
              showToast("Selection saved successfully!", false);
              btn.disabled = false;
-             btn.textContent = originalText;
-          })
-          .withFailureHandler(function(err) {
+             btn.textContent = "Apply Selection";
+          }).withFailureHandler(function(err) {
              showError(err);
              btn.disabled = false;
-             btn.textContent = originalText;
-          })
-          .saveSelectedHeaders(finalSelection);
+             btn.textContent = "Apply Selection";
+          }).saveSelectedHeaders(finalSelection);
       }
-
       function openTab(evt, tabName) {
         var i, tabcontent, tablinks;
         tabcontent = document.getElementsByClassName("tabcontent");
@@ -116,66 +93,39 @@ Chat link: [Insert Link]
         evt.currentTarget.className += " active";
         if (tabName === 'Settings' && !settingsLoaded) loadSettings();
       }
-
-      /**
-       * Consolidates loading logic into a single server call.
-       */
       function loadSettings() {
         const container = document.getElementById('settings-container');
         const reqList = document.getElementById('required-headers-list');
-        
         container.innerHTML = '<div class="loading-text">Fetching data...</div>';
-        
-        google.script.run
-          .withSuccessHandler(function(config) {
-            requiredHeaders = config.required;
-            reqList.innerHTML = config.required.map(h => `<span class="required-item">${h}</span>`).join('');
-            renderAllCheckboxes(config.defaults, config.optionals);
-          })
-          .withFailureHandler(showError)
-          .getHeaderConfiguration();
+        google.script.run.withSuccessHandler(function(reqs) {
+          requiredHeaders = reqs;
+          reqList.innerHTML = reqs.map(h => `<span class="required-item">${h}</span>`).join('');
+          google.script.run.withSuccessHandler(renderSettings).withFailureHandler(showError).getImportHeaderOptions();
+        }).getRequiredHeaders();
       }
-
-      function renderAllCheckboxes(defaults, optionals) {
+      function renderSettings(values) {
         const container = document.getElementById('settings-container');
         container.innerHTML = ''; 
-
-        const allOptions = [
-          ...defaults.map(v => ({ value: v, checked: true })),
-          ...optionals.map(v => ({ value: v, checked: false }))
-        ];
-
-        if (allOptions.length === 0) { 
-          container.innerHTML = '<div class="loading-text">No headers found.</div>'; 
-          return; 
-        }
-
-        allOptions.forEach(function(item) {
+        if (!values || values.length === 0) { container.innerHTML = '<div class="loading-text">No additional headers found.</div>'; return; }
+        values.forEach(function(val) {
           var label = document.createElement('label');
           label.className = 'checkbox-label';
           var input = document.createElement('input');
           input.type = 'checkbox';
-          input.value = item.value;
-          if (item.checked) input.checked = true;
-          
+          input.value = val;
           label.appendChild(input);
-          label.appendChild(document.createTextNode(item.value));
+          label.appendChild(document.createTextNode(val));
           container.appendChild(label);
         });
         settingsLoaded = true;
       }
-
-      function showError(err) { 
-        showToast("Error: " + (err.message || err), true); 
-      }
-
+      function showError(err) { showToast("Error: " + (err.message || err), true); }
       function showToast(message, isError) {
         var x = document.getElementById("toast-container");
         x.textContent = message;
         x.className = "show " + (isError ? "error" : "success");
         setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
       }
-
       document.getElementById("defaultOpen").click();
     </script>
   </body>
