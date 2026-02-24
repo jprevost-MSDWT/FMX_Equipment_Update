@@ -2,15 +2,18 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 2.00
 Filename: ImportExport.gs
-File Version: 2.02
+File Version: 1.11
 Chat link: [Insert Link]
 */
 
 /**
  * @file ImportExport.gs
- * @description Handles Import logic and Header Extraction.
+ * @description Handles Import and Export logic with robust Drive API error handling.
  */
 
+/**
+ * Opens the Import Dialog.
+ */
 function openImportDialog() {
   const html = HtmlService.createHtmlOutputFromFile('IMPORTdialog')
     .setWidth(600)
@@ -18,19 +21,35 @@ function openImportDialog() {
   SpreadsheetApp.getUi().showModalDialog(html, 'Import Data');
 }
 
+/**
+ * Compatibility wrapper for the Sidebar button.
+ * Redirects 'promptForImport' calls to the new dialog.
+ */
 function promptForImport() {
   openImportDialog();
 }
 
+/**
+ * Handles the server-side import logic called by the dialog.
+ * Decodes Base64 input, converts Excel to values (via Drive API), or parses CSV.
+ * @param {string} dataUrl - The base64 data URL of the file OR raw text.
+ * @param {string} fileType - The MIME type of the file.
+ * @param {string} fileName - The name of the file (optional).
+ * @return {string} Status message.
+ */
 function importData(dataUrl, fileType, fileName) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.sheets.import);
-    if (!sheet) throw new Error(`Sheet "${CONFIG.sheets.import}" not found.`);
+    
+    if (!sheet) {
+      throw new Error(`Sheet "${CONFIG.sheets.import}" not found.`);
+    }
 
     let blob;
     const name = fileName || "Imported File";
 
+    // 1. Decode Data to Blob
     if (dataUrl.indexOf("data:") === 0) {
       const base64Data = dataUrl.split(',')[1];
       const decodedBytes = Utilities.base64Decode(base64Data);
@@ -39,6 +58,7 @@ function importData(dataUrl, fileType, fileName) {
       blob = Utilities.newBlob(dataUrl, 'text/csv', name);
     }
 
+    // 2. Determine File Type & Extract Data
     const isExcel = fileType.includes('excel') || 
                     fileType.includes('spreadsheetml') || 
                     name.endsWith('.xlsx') || 
@@ -47,51 +67,117 @@ function importData(dataUrl, fileType, fileName) {
     let data = [];
 
     if (isExcel) {
-      const resource = { title: name, name: name, mimeType: MimeType.GOOGLE_SHEETS };
-      let tempFile = Drive.Files.insert ? Drive.Files.insert(resource, blob) : Drive.Files.create(resource, blob);
-      const tempSs = SpreadsheetApp.openById(tempFile.id);
-      data = tempSs.getSheets()[0].getDataRange().getValues();
-      Drive.Files.remove ? Drive.Files.remove(tempFile.id) : Drive.Files.delete(tempFile.id);
+      /**
+       * Handles XLSX conversion using Drive API with robust error checking.
+       */
+      try {
+        // Check if Drive service is defined at all
+        if (typeof Drive === 'undefined') {
+          throw new Error("Drive API Service not detected.");
+        }
+
+        const resource = {
+          title: name,
+          name: name, // V3 uses 'name', V2 uses 'title'
+          mimeType: MimeType.GOOGLE_SHEETS
+        };
+        
+        // Convert and Open
+        let tempFile = Drive.Files.insert ? Drive.Files.insert(resource, blob) : Drive.Files.create(resource, blob);
+        const tempSs = SpreadsheetApp.openById(tempFile.id);
+        data = tempSs.getSheets()[0].getDataRange().getValues();
+        
+        // Cleanup: Use nested try/catch so cleanup failure doesn't kill the import
+        try {
+          if (Drive.Files.remove) {
+            Drive.Files.remove(tempFile.id);
+          } else if (Drive.Files.delete) {
+             Drive.Files.delete(tempFile.id);
+          }
+        } catch (cleanupError) {
+          console.warn("Temporary file cleanup failed: " + cleanupError.message);
+        }
+
+      } catch (err) {
+        if (err.message.includes("Drive API Service not detected") || err instanceof ReferenceError || err.message.includes("Drive is not defined")) {
+          throw new Error("Advanced Drive Service is not enabled. Please go to 'Services' (+), find 'Drive API', and add it to the project.");
+        }
+        throw new Error("XLSX Conversion Error: " + err.message);
+      }
+
     } else {
-      data = Utilities.parseCsv(blob.getDataAsString());
+      // CSV Parsing Logic
+      const csvContent = blob.getDataAsString();
+      data = Utilities.parseCsv(csvContent);
     }
 
-    if (!data || data.length === 0) return "Error: No data found.";
+    if (!data || data.length === 0) {
+      return "Error: No data found in file.";
+    }
 
+    // 3. Write Data to Sheet
     sheet.clear();
     sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
 
-    const targetHeaderID = CONFIG.columnNames.ItemID[0];
-    let headerRow = data.find(row => row[0] && row[0].toString().trim() === targetHeaderID);
+    // 4. Extract Headers (Row 3 / Index 2)
+    if (data.length < 3) {
+      return "Warning: File imported but too short to contain standard headers.";
+    }
 
-    if (!headerRow) return "Warning: Data imported, but ID header not found.";
-
+    const headerRow = data[2]; 
     const cleanHeaders = headerRow.filter(h => h && h.toString().trim() !== "");
+
     updateDataSheetHeaders(cleanHeaders);
 
-    return `Success: Imported ${data.length} rows. Headers extracted.`;
+    return `Success: Imported ${data.length} rows from ${name}. Headers extracted.`;
+
   } catch (e) {
+    console.error("Import Error: " + e.message);
     throw e;
   }
 }
 
+/**
+ * Updates the 'Import_Headers' column in the Data sheet with the provided headers.
+ * @param {Array<string>} headers - The array of headers extracted from the imported file.
+ */
 function updateDataSheetHeaders(headers) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const dataSheet = ss.getSheetByName(CONFIG.sheets.data);
-  if (!dataSheet) return;
 
-  const sheetHeaders = dataSheet.getRange(1, 1, 1, dataSheet.getLastColumn()).getValues()[0];
-  const colIndex = sheetHeaders.indexOf(CONFIG.reportRanges.Import_Headers);
+  if (!dataSheet) {
+    console.error(`Sheet "${CONFIG.sheets.data}" not found.`);
+    return;
+  }
 
-  if (colIndex === -1) return;
+  const lastCol = dataSheet.getLastColumn();
+  if (lastCol === 0) return; 
+
+  const sheetHeaders = dataSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const targetHeaderName = CONFIG.reportRanges.Import_Headers;
+  
+  const colIndex = sheetHeaders.indexOf(targetHeaderName);
+
+  if (colIndex === -1) {
+    console.error(`Column header "${targetHeaderName}" not found in ${CONFIG.sheets.data} sheet.`);
+    return;
+  }
   const colNumber = colIndex + 1;
 
-  if (dataSheet.getMaxRows() > 1) {
-    dataSheet.getRange(2, colNumber, dataSheet.getMaxRows() - 1, 1).clearContent();
+  const maxRows = dataSheet.getMaxRows();
+  if (maxRows > 1) {
+    dataSheet.getRange(2, colNumber, maxRows - 1, 1).clearContent();
   }
 
   if (headers && headers.length > 0) {
     const outputValues = headers.map(h => [h]);
     dataSheet.getRange(2, colNumber, outputValues.length, 1).setValues(outputValues);
   }
+}
+
+/**
+ * Placeholder for export logic.
+ */
+function handleExport() {
+  // Logic for future export features
 }

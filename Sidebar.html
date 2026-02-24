@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 2.00
 Filename: Sidebar.html
-File Version: 2.03
+File Version: 2.04
 Chat link: [Insert Link]
 -->
 
@@ -24,7 +24,6 @@ Chat link: [Insert Link]
       
       .instructions { margin-top: 15px; font-size: 0.8em; color: #5f6368; padding: 10px; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; }
       
-      /* Required Headers Styling */
       .required-box { margin-bottom: 10px; padding: 8px; background-color: #eef3fe; border-left: 4px solid #3367D6; border-radius: 4px; }
       .required-title { font-weight: bold; font-size: 0.85em; color: #3367D6; margin-bottom: 4px; }
       .required-list { font-size: 0.8em; color: #444; display: flex; flex-wrap: wrap; gap: 5px; }
@@ -37,7 +36,6 @@ Chat link: [Insert Link]
       .loading-text { color: #666; font-style: italic; padding: 10px; text-align: center; }
       .refresh-btn { float: right; cursor: pointer; border: none; background: none; color: #1a73e8; font-size: 0.9em; padding: 0; font-weight: bold; }
 
-      /* Toast Notifications */
       #toast-container { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: #333; color: #fff; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1; left: 50%; bottom: 30px; font-size: 14px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
       #toast-container.show { visibility: visible; opacity: 1; bottom: 50px; }
       #toast-container.error { background-color: #d93025; }
@@ -57,7 +55,6 @@ Chat link: [Insert Link]
 
       <div id="Settings" class="tabcontent">
          <div class="instructions">
-           <!-- Required Section (Non-selectable) -->
            <div class="required-box">
              <div class="required-title">Core Headers (Always Included):</div>
              <div id="required-headers-list" class="required-list">
@@ -73,7 +70,7 @@ Chat link: [Insert Link]
              <div class="loading-text">Loading options...</div>
            </div>
          </div>
-         <button class="action-button" onclick="saveSettings()">Apply Selection</button>
+         <button id="save-settings-btn" class="action-button" onclick="saveSettings()">Apply Selection</button>
       </div>
     </div>
 
@@ -88,11 +85,9 @@ Chat link: [Insert Link]
       function saveSettings() {
         const checkboxes = document.querySelectorAll('#settings-container input[type="checkbox"]:checked');
         const userSelected = Array.from(checkboxes).map(cb => cb.value);
-        
-        // Combine Required (hidden/static) + User Selected (from checkboxes)
         const finalSelection = [...requiredHeaders, ...userSelected];
         
-        const btn = document.querySelector('button[onclick="saveSettings()"]');
+        const btn = document.getElementById('save-settings-btn');
         const originalText = btn.textContent;
         btn.disabled = true;
         btn.textContent = "Saving...";
@@ -122,28 +117,23 @@ Chat link: [Insert Link]
         if (tabName === 'Settings' && !settingsLoaded) loadSettings();
       }
 
+      /**
+       * Consolidates loading logic into a single server call.
+       */
       function loadSettings() {
         const container = document.getElementById('settings-container');
         const reqList = document.getElementById('required-headers-list');
         
         container.innerHTML = '<div class="loading-text">Fetching data...</div>';
         
-        // Phase 1: Fetch Required (Static list)
-        google.script.run.withSuccessHandler(function(reqs) {
-          requiredHeaders = reqs;
-          reqList.innerHTML = reqs.map(h => `<span class="required-item">${h}</span>`).join('');
-          
-          // Phase 2: Fetch Default Selected (Checked by default)
-          google.script.run.withSuccessHandler(function(defaults) {
-            
-            // Phase 3: Fetch Optional (Unchecked by default)
-            google.script.run.withSuccessHandler(function(optionals) {
-               renderAllCheckboxes(defaults, optionals);
-            }).withFailureHandler(showError).getImportHeaderOptions();
-
-          }).withFailureHandler(showError).getDefaultSelectedHeaders();
-
-        }).getRequiredHeaders();
+        google.script.run
+          .withSuccessHandler(function(config) {
+            requiredHeaders = config.required;
+            reqList.innerHTML = config.required.map(h => `<span class="required-item">${h}</span>`).join('');
+            renderAllCheckboxes(config.defaults, config.optionals);
+          })
+          .withFailureHandler(showError)
+          .getHeaderConfiguration();
       }
 
       function renderAllCheckboxes(defaults, optionals) {
