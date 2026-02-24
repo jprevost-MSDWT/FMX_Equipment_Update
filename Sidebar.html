@@ -1,8 +1,8 @@
 <!--
 Project Name: FMX Equipment Import non-Gem
-Project Version: 3.00
+Project Version: 3.01
 Filename: Sidebar.html
-File Version: 3.00
+File Version: 3.02
 Chat link: [Insert Link]
 -->
 
@@ -58,21 +58,27 @@ Chat link: [Insert Link]
            </div>
            <div id="settings-container" class="checkbox-group"><div class="loading-text">Loading options...</div></div>
          </div>
-         <button class="action-button" onclick="saveSettings()">Apply Selection</button>
+         <button id="save-settings-btn" class="action-button" onclick="saveSettings()">Apply Selection</button>
       </div>
     </div>
     <div id="toast-container"></div>
     <script>
       var settingsLoaded = false;
       var requiredHeaders = [];
-      function runImport() { google.script.run.withFailureHandler(showError).promptForImport(); }
+
+      function runImport() { 
+        google.script.run.withFailureHandler(showError).promptForImport(); 
+      }
+
       function saveSettings() {
         const checkboxes = document.querySelectorAll('#settings-container input[type="checkbox"]:checked');
         const userSelected = Array.from(checkboxes).map(cb => cb.value);
         const finalSelection = [...requiredHeaders, ...userSelected];
-        const btn = document.querySelector('button[onclick="saveSettings()"]');
+        
+        const btn = document.getElementById('save-settings-btn');
         btn.disabled = true;
         btn.textContent = "Saving...";
+        
         google.script.run.withSuccessHandler(function() {
              showToast("Selection saved successfully!", false);
              btn.disabled = false;
@@ -83,6 +89,7 @@ Chat link: [Insert Link]
              btn.textContent = "Apply Selection";
           }).saveSelectedHeaders(finalSelection);
       }
+
       function openTab(evt, tabName) {
         var i, tabcontent, tablinks;
         tabcontent = document.getElementsByClassName("tabcontent");
@@ -93,39 +100,64 @@ Chat link: [Insert Link]
         evt.currentTarget.className += " active";
         if (tabName === 'Settings' && !settingsLoaded) loadSettings();
       }
+
       function loadSettings() {
         const container = document.getElementById('settings-container');
         const reqList = document.getElementById('required-headers-list');
         container.innerHTML = '<div class="loading-text">Fetching data...</div>';
-        google.script.run.withSuccessHandler(function(reqs) {
-          requiredHeaders = reqs;
-          reqList.innerHTML = reqs.map(h => `<span class="required-item">${h}</span>`).join('');
-          google.script.run.withSuccessHandler(renderSettings).withFailureHandler(showError).getImportHeaderOptions();
-        }).getRequiredHeaders();
+        
+        google.script.run
+          .withSuccessHandler(function(config) {
+            requiredHeaders = config.required;
+            reqList.innerHTML = config.required.map(h => `<span class="required-item">${h}</span>`).join('');
+            renderAllCheckboxes(config.defaults, config.optionals);
+          })
+          .withFailureHandler(showError)
+          .getHeaderConfiguration();
       }
-      function renderSettings(values) {
+
+      function renderAllCheckboxes(defaults, optionals) {
         const container = document.getElementById('settings-container');
         container.innerHTML = ''; 
-        if (!values || values.length === 0) { container.innerHTML = '<div class="loading-text">No additional headers found.</div>'; return; }
-        values.forEach(function(val) {
-          var label = document.createElement('label');
+        
+        const allOptions = [
+          ...defaults.map(v => ({ value: v, checked: true })),
+          ...optionals.map(v => ({ value: v, checked: false }))
+        ];
+
+        if (allOptions.length === 0) { 
+           container.innerHTML = '<div class="loading-text">No headers found.</div>'; 
+           return; 
+        }
+
+        const fragment = document.createDocumentFragment();
+        
+        allOptions.forEach(item => {
+          const label = document.createElement('label');
           label.className = 'checkbox-label';
-          var input = document.createElement('input');
+          const input = document.createElement('input');
           input.type = 'checkbox';
-          input.value = val;
+          input.value = item.value;
+          input.checked = item.checked;
+          
           label.appendChild(input);
-          label.appendChild(document.createTextNode(val));
-          container.appendChild(label);
+          label.appendChild(document.createTextNode(item.value));
+          fragment.appendChild(label);
         });
+        
+        container.appendChild(fragment);
         settingsLoaded = true;
       }
+
       function showError(err) { showToast("Error: " + (err.message || err), true); }
+      
       function showToast(message, isError) {
         var x = document.getElementById("toast-container");
         x.textContent = message;
         x.className = "show " + (isError ? "error" : "success");
         setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
       }
+
       document.getElementById("defaultOpen").click();
     </script>
   </body>
