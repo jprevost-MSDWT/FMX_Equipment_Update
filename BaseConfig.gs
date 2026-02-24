@@ -1,8 +1,8 @@
 /*
 Project Name: FMX Equipment Import non-Gem
-Project Version: 2.00
+Project Version: 3.00
 Filename: BaseConfig.gs
-File Version: 2.08
+File Version: 3.00
 Chat link: [Insert Link]
 */
 
