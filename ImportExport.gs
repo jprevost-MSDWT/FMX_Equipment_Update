@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 2.00
 Filename: ImportExport.gs
-File Version: 1.11
+File Version: 2.12
 Chat link: [Insert Link]
 */
 
@@ -119,17 +119,28 @@ function importData(dataUrl, fileType, fileName) {
     sheet.clear();
     sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
 
-    // 4. Extract Headers (Row 3 / Index 2)
-    if (data.length < 3) {
-      return "Warning: File imported but too short to contain standard headers.";
+    // 4. Extract Headers (Dynamic Search)
+    let headerRowIndex = -1;
+    const searchLimit = Math.min(10, data.length);
+    const requiredHeader = CONFIG.mapping.required[0] || "ID*"; 
+
+    for (let i = 0; i < searchLimit; i++) {
+      if (data[i].includes(requiredHeader)) {
+        headerRowIndex = i;
+        break;
+      }
     }
 
-    const headerRow = data[2]; 
+    if (headerRowIndex === -1) {
+      return `Error: Could not find required header '${requiredHeader}' in the first ${searchLimit} rows of the file.`;
+    }
+
+    const headerRow = data[headerRowIndex]; 
     const cleanHeaders = headerRow.filter(h => h && h.toString().trim() !== "");
 
     updateDataSheetHeaders(cleanHeaders);
 
-    return `Success: Imported ${data.length} rows from ${name}. Headers extracted.`;
+    return `Success: Imported ${data.length} rows from ${name}. Headers extracted from row ${headerRowIndex + 1}.`;
 
   } catch (e) {
     console.error("Import Error: " + e.message);
@@ -164,9 +175,9 @@ function updateDataSheetHeaders(headers) {
   }
   const colNumber = colIndex + 1;
 
-  const maxRows = dataSheet.getMaxRows();
-  if (maxRows > 1) {
-    dataSheet.getRange(2, colNumber, maxRows - 1, 1).clearContent();
+  const lastRow = dataSheet.getLastRow();
+  if (lastRow > 1) {
+    dataSheet.getRange(2, colNumber, lastRow - 1, 1).clearContent();
   }
 
   if (headers && headers.length > 0) {
