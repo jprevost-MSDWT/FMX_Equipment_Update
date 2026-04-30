@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 3.01
 Filename: Sidebar.html
-File Version: 3.03
+File Version: 3.04
 Chat link: [Insert Link]
 -->
 
@@ -158,6 +158,8 @@ Chat link: [Insert Link]
            return; 
         }
 
+        var fragment = document.createDocumentFragment();
+        
         allOptions.forEach(function(item) {
           var label = document.createElement('label');
           label.className = 'checkbox-label';
@@ -168,9 +170,10 @@ Chat link: [Insert Link]
           
           label.appendChild(input);
           label.appendChild(document.createTextNode(item.value));
-          container.appendChild(label);
+          fragment.appendChild(label);
         });
         
+        container.appendChild(fragment);
         settingsLoaded = true;
       }
 
