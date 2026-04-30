@@ -87,9 +87,9 @@ function getSelectedHeadersList(ss) {
   const range = ss.getRangeByName(CONFIG.namedRanges.Selected_Headers);
   if (!range) return [];
   
-  return range.getValues()
-    .flat()
-    .filter(h => h && h.toString().trim() !== "");
+  return range.getValues().flat()
+    .map(h => h ? h.toString().trim() : "")
+    .filter(h => h !== "");
 }
 
 /**
