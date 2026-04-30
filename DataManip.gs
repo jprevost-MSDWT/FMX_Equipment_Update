@@ -49,7 +49,7 @@ function processImportedData() {
       throw new Error(`Could not find the header row in RAWImport (searched for ${requiredMarker}).`);
     }
 
-    const sourceHeaders = sourceData[headerRowIndex];
+    const sourceHeaders = sourceData[headerRowIndex].map(h => h ? h.toString().trim() : "");
     const dataRows = sourceData.slice(headerRowIndex + 1);
 
     // 3. Map Selected Headers to Source Column Indices
