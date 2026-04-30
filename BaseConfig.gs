@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 3.00
 Filename: BaseConfig.gs
-File Version: 3.00
+File Version: 3.01
 Chat link: [Insert Link]
 */
 
@@ -13,7 +13,8 @@ Chat link: [Insert Link]
 const CONFIG = {
   sheets: {
     import: "RAWImport",    // Do NOT change. Also used in HTML
-    data: "Data"
+    data: "Data",
+    edit: "Equipment_Edit"
   },
   reportRanges: {
     placeholderRange1: 7,  
