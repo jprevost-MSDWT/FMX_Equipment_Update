@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 3.01
 Filename: Sidebar.html
-File Version: 3.02
+File Version: 3.03
 Chat link: [Insert Link]
 -->
 
@@ -21,6 +21,7 @@ Chat link: [Insert Link]
       .tabcontent { display: none; padding: 12px 0px; border-top: none; }
       .action-button { width: 100%; padding: 12px; margin-top: 8px; border: none; background-color: #8ab4f8; color: #000000; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 0.9em; text-align: left; transition: background-color 0.2s, color 0.2s; }
       .action-button:hover { background-color: #3367D6; color: #ffffff; }
+      .secondary-button { background-color: #e8f0fe; color: #1967d2; }
       .instructions { margin-top: 15px; font-size: 0.8em; color: #5f6368; padding: 10px; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; }
       .required-box { margin-bottom: 10px; padding: 8px; background-color: #eef3fe; border-left: 4px solid #3367D6; border-radius: 4px; }
       .required-title { font-weight: bold; font-size: 0.85em; color: #3367D6; margin-bottom: 4px; }
@@ -43,9 +44,15 @@ Chat link: [Insert Link]
         <button class="tablinks active" onclick="openTab(event, 'MainActions')" id="defaultOpen">Actions</button>
         <button class="tablinks" onclick="openTab(event, 'Settings')">Settings</button>
       </div>
+      
       <div id="MainActions" class="tabcontent" style="display: block;">
         <button class="action-button" onclick="runImport()">Import Excel File</button>
+        <button id="manual-process-btn" class="action-button secondary-button" onclick="runManualProcess()">Refresh Data Mapping</button>
+        <div class="instructions" style="margin-top:10px; font-size:0.75em;">
+          Use <b>Refresh Data Mapping</b> if you changed header selections and want to re-sync the Equipment Edit sheet.
+        </div>
       </div>
+
       <div id="Settings" class="tabcontent">
          <div class="instructions">
            <div class="required-box">
@@ -61,13 +68,34 @@ Chat link: [Insert Link]
          <button id="save-settings-btn" class="action-button" onclick="saveSettings()">Apply Selection</button>
       </div>
     </div>
+    
     <div id="toast-container"></div>
+
     <script>
       var settingsLoaded = false;
       var requiredHeaders = [];
 
       function runImport() { 
         google.script.run.withFailureHandler(showError).promptForImport(); 
+      }
+
+      function runManualProcess() {
+        const btn = document.getElementById('manual-process-btn');
+        btn.disabled = true;
+        btn.textContent = "Processing...";
+        
+        google.script.run
+          .withSuccessHandler(function(msg) {
+            showToast("Sync Complete", false);
+            btn.disabled = false;
+            btn.textContent = "Refresh Data Mapping";
+          })
+          .withFailureHandler(function(err) {
+            showError(err);
+            btn.disabled = false;
+            btn.textContent = "Refresh Data Mapping";
+          })
+          .processImportedData();
       }
 
       function saveSettings() {
@@ -130,22 +158,19 @@ Chat link: [Insert Link]
            return; 
         }
 
-        const fragment = document.createDocumentFragment();
-        
-        allOptions.forEach(item => {
-          const label = document.createElement('label');
+        allOptions.forEach(function(item) {
+          var label = document.createElement('label');
           label.className = 'checkbox-label';
-          const input = document.createElement('input');
+          var input = document.createElement('input');
           input.type = 'checkbox';
           input.value = item.value;
-          input.checked = item.checked;
+          if (item.checked) input.checked = true;
           
           label.appendChild(input);
           label.appendChild(document.createTextNode(item.value));
-          fragment.appendChild(label);
+          container.appendChild(label);
         });
         
-        container.appendChild(fragment);
         settingsLoaded = true;
       }
 
