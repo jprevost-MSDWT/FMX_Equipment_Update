@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 3.00
 Filename: ImportExport.gs
-File Version: 3.00
+File Version: 3.02
 Chat link: [Insert Link]
 */
 
@@ -27,6 +27,19 @@ function openImportDialog() {
  */
 function promptForImport() {
   openImportDialog();
+}
+
+/**
+ * Manually triggers the column mapping and data transfer to Equipment_Edit.
+ * Designed to be called from the Custom Menu or Sidebar Actions.
+ */
+function manualProcessImport() {
+  try {
+    const result = processImportedData();
+    SpreadsheetApp.getUi().alert(result);
+  } catch (e) {
+    SpreadsheetApp.getUi().alert("Manual Transfer Failed: " + e.message);
+  }
 }
 
 /**
@@ -71,23 +84,20 @@ function importData(dataUrl, fileType, fileName) {
        * Handles XLSX conversion using Drive API with robust error checking.
        */
       try {
-        // Check if Drive service is defined at all
         if (typeof Drive === 'undefined') {
           throw new Error("Drive API Service not detected.");
         }
 
         const resource = {
           title: name,
-          name: name, // V3 uses 'name', V2 uses 'title'
+          name: name, 
           mimeType: MimeType.GOOGLE_SHEETS
         };
         
-        // Convert and Open
         let tempFile = Drive.Files.insert ? Drive.Files.insert(resource, blob) : Drive.Files.create(resource, blob);
         const tempSs = SpreadsheetApp.openById(tempFile.id);
         data = tempSs.getSheets()[0].getDataRange().getValues();
         
-        // Cleanup: Use nested try/catch so cleanup failure doesn't kill the import
         try {
           if (Drive.Files.remove) {
             Drive.Files.remove(tempFile.id);
@@ -106,7 +116,6 @@ function importData(dataUrl, fileType, fileName) {
       }
 
     } else {
-      // CSV Parsing Logic
       const csvContent = blob.getDataAsString();
       data = Utilities.parseCsv(csvContent);
     }
@@ -138,9 +147,13 @@ function importData(dataUrl, fileType, fileName) {
     const headerRow = data[headerRowIndex]; 
     const cleanHeaders = headerRow.filter(h => h && h.toString().trim() !== "");
 
+    // Update the available header options in the Data sheet
     updateDataSheetHeaders(cleanHeaders);
 
-    return `Success: Imported ${data.length} rows from ${name}. Headers extracted from row ${headerRowIndex + 1}.`;
+    // 5. Transfer to Equipment_Edit based on current selection
+    const transferResult = processImportedData();
+
+    return `File "${name}" imported successfully.\n${transferResult}`;
 
   } catch (e) {
     console.error("Import Error: " + e.message);
