@@ -1,8 +1,8 @@
 <!--
 Project Name: FMX Equipment Import non-Gem
-Project Version: 3.01
+Project Version: 4.00
 Filename: Sidebar.html
-File Version: 3.03
+File Version: 3.05
 Chat link: [Insert Link]
 -->
 
@@ -46,7 +46,7 @@ Chat link: [Insert Link]
       </div>
       
       <div id="MainActions" class="tabcontent" style="display: block;">
-        <button class="action-button" onclick="runImport()">Import Excel File</button>
+        <button class="action-button" onclick="runImport()">Import Edit</button>
         <button id="manual-process-btn" class="action-button secondary-button" onclick="runManualProcess()">Refresh Data Mapping</button>
         <div class="instructions" style="margin-top:10px; font-size:0.75em;">
           Use <b>Refresh Data Mapping</b> if you changed header selections and want to re-sync the Equipment Edit sheet.
@@ -158,6 +158,8 @@ Chat link: [Insert Link]
            return; 
         }
 
+        var fragment = document.createDocumentFragment();
+        
         allOptions.forEach(function(item) {
           var label = document.createElement('label');
           label.className = 'checkbox-label';
@@ -168,9 +170,10 @@ Chat link: [Insert Link]
           
           label.appendChild(input);
           label.appendChild(document.createTextNode(item.value));
-          container.appendChild(label);
+          fragment.appendChild(label);
         });
         
+        container.appendChild(fragment);
         settingsLoaded = true;
       }
 
