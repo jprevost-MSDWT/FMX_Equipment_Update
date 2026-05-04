@@ -116,7 +116,8 @@
         selectedFile = file;
         
         // Safety First: Use textContent for the filename
-        dropZoneText.textContent = "File ready: " + file.name;
+        dropZoneText.innerHTML = '<strong>File ready:</strong><br>';
+        dropZoneText.appendChild(document.createTextNode(file.name));
         
         importBtn.disabled = false;
         importBtn.classList.replace('bg-blue-600', 'bg-green-600');
