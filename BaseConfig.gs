@@ -59,7 +59,7 @@ function OnOpen_Triggered(e) {
  */
 function createCustomMenu() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu("Excel Tools")
+  ui.createMenu("Edit Tools")
     .addItem('Open Sidebar', 'showSidebar')
     .addSeparator()
     .addItem('Import Edit', 'promptForImport')
@@ -71,7 +71,7 @@ function createCustomMenu() {
  */
 function showSidebar() {
   const html = HtmlService.createHtmlOutputFromFile('Sidebar')
-    .setTitle("Excel Tools Control")
+    .setTitle("Sidebar Menu")
     .setWidth(300);
   SpreadsheetApp.getUi().showSidebar(html);
 }
