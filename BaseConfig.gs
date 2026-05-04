@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: BaseConfig.gs
-File Version: 3.04
+File Version: 3.05
 Chat link: [Insert Link]
 */
 
@@ -59,15 +59,11 @@ function OnOpen_Triggered(e) {
  */
 function createCustomMenu() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu("Excel Tools")
+  ui.createMenu("Edit Tools")
     .addItem('Open Sidebar', 'showSidebar')
     .addSeparator()
     .addItem('Import Edit', 'promptForImport')
-    .addSeparator()
-    .addItem('TEST full type extract', 'extractDataFromPDF')
-    .addItem('TEST type extract', 'showImportDialog')
     .addToUi();
-
 }
 
 /**
@@ -75,7 +71,7 @@ function createCustomMenu() {
  */
 function showSidebar() {
   const html = HtmlService.createHtmlOutputFromFile('Sidebar')
-    .setTitle("Excel Tools Control")
+    .setTitle("Sidebar Menu")
     .setWidth(300);
   SpreadsheetApp.getUi().showSidebar(html);
 }
@@ -150,19 +146,21 @@ function getRequiredHeaders() {
 }
 
 /**
- * Fetches default selected headers from the Named Range.
- * @return {string[]}
+ * Fetches default selected headers dynamically from the Named Range.
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss - Optional active spreadsheet.
+ * @return {string[]} Unique array of default selected headers.
  */
-function getDefaultSelectedHeaders() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+function getDefaultSelectedHeaders(ss = SpreadsheetApp.getActiveSpreadsheet()) {
   const rangeName = CONFIG.namedRanges.Default_Headers;
   const range = ss.getRangeByName(rangeName);
   
   if (!range) return [];
   
-  return range.getValues().flat()
+  const values = range.getValues().flat()
     .map(h => h ? h.toString().trim() : "")
     .filter(h => h !== "");
+    
+  return [...new Set(values)];
 }
 
 /**
@@ -178,8 +176,12 @@ function getImportHeaderOptions() {
   if (!range) return [];
   
   const required = CONFIG.mapping.required;
-  const defaultSel = getDefaultSelectedHeaders();
-  const values = range.getValues().flat();
+  // Use the existing 'ss' object to prevent redundant API calls
+  const defaultSel = getDefaultSelectedHeaders(ss);
+  
+  // Trim the values before filtering to ensure robust string matching
+  const values = range.getValues().flat()
+    .map(h => h?.toString().trim() || "");
   
   // Filter out empty values and values already handled by specific logic
   return values.filter(item => {
