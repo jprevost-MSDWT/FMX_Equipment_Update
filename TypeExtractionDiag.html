@@ -1,3 +1,11 @@
+<!--
+Project Name: FMX Equipment Import non-Gem
+Project Version: 4.00
+Filename: TypeExtractionDiag.html
+File Version: 2.00
+Chat link: [Insert Link]
+-->
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -116,8 +124,7 @@
         selectedFile = file;
         
         // Safety First: Use textContent for the filename
-        dropZoneText.innerHTML = '<strong>File ready:</strong><br>';
-        dropZoneText.appendChild(document.createTextNode(file.name));
+        dropZoneText.textContent = "File ready: " + file.name;
         
         importBtn.disabled = false;
         importBtn.classList.replace('bg-blue-600', 'bg-green-600');
