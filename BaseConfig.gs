@@ -181,7 +181,7 @@ function getImportHeaderOptions() {
   
   // Trim the values before filtering to ensure robust string matching
   const values = range.getValues().flat()
-    .map(h => h ? h.toString().trim() : "");
+    .map(h => h?.toString().trim() || "");
   
   // Filter out empty values and values already handled by specific logic
   return values.filter(item => {
