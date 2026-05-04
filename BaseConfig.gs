@@ -1,8 +1,8 @@
 /*
 Project Name: FMX Equipment Import non-Gem
-Project Version: 3.00
+Project Version: 4.00
 Filename: BaseConfig.gs
-File Version: 3.01
+File Version: 3.04
 Chat link: [Insert Link]
 */
 
@@ -28,7 +28,8 @@ const CONFIG = {
     // New Named Ranges for Equipment Data
     Equipment_types_Import: "Equipment_types_Import",
     Equipment_modules_Import: "Equipment_modules_Import",
-    Equipment_types_Filtered: "Equipment_types_Filtered"
+    Equipment_types_Filtered: "Equipment_types_Filtered",
+    Default_Headers: "Default_Headers"
   },
   columnNames: {
     ItemID: ["ID*"],
@@ -37,14 +38,9 @@ const CONFIG = {
     Item_Building: ["Building*"],
   },
   mapping: {
+    headerSearchLimit: 20, // Extracted magic number for dynamic header search
     // Headers that must ALWAYS be included in Selected_Headers
-    required: ["ID*", "Tag*", "Type*", "Building*"],
-    // Headers selected by default but can be unselected by user
-    default_selected: [
-      "01.1:Manufacturer",
-      "01.2: Model Number",
-      "01.3:Serial Number"
-    ]
+    required: ["ID*", "Tag*", "Type*", "Building*"]
   }
 };
 
@@ -66,8 +62,12 @@ function createCustomMenu() {
   ui.createMenu("Excel Tools")
     .addItem('Open Sidebar', 'showSidebar')
     .addSeparator()
-    .addItem('Import Excel File', 'promptForImport')
+    .addItem('Import Edit', 'promptForImport')
+    .addSeparator()
+    .addItem('TEST full type extract', 'extractDataFromPDF')
+    .addItem('TEST type extract', 'showImportDialog')
     .addToUi();
+
 }
 
 /**
@@ -150,11 +150,19 @@ function getRequiredHeaders() {
 }
 
 /**
- * Fetches default selected headers from CONFIG.
+ * Fetches default selected headers from the Named Range.
  * @return {string[]}
  */
 function getDefaultSelectedHeaders() {
-  return CONFIG.mapping.default_selected;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const rangeName = CONFIG.namedRanges.Default_Headers;
+  const range = ss.getRangeByName(rangeName);
+  
+  if (!range) return [];
+  
+  return range.getValues().flat()
+    .map(h => h ? h.toString().trim() : "")
+    .filter(h => h !== "");
 }
 
 /**
@@ -170,7 +178,7 @@ function getImportHeaderOptions() {
   if (!range) return [];
   
   const required = CONFIG.mapping.required;
-  const defaultSel = CONFIG.mapping.default_selected;
+  const defaultSel = getDefaultSelectedHeaders();
   const values = range.getValues().flat();
   
   // Filter out empty values and values already handled by specific logic
