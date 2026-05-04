@@ -57,7 +57,7 @@
   </div>
 
   <div id="dropZone">
-    <span>Drag & Drop the PDF here<br>or click to select</span>
+    <span id="dropZoneText">Drag & Drop the PDF here<br>or click to select</span>
   </div>
   <input type="file" id="fileInput" accept=".pdf">
 
@@ -74,6 +74,7 @@
 
   <script>
     const dropZone = document.getElementById('dropZone');
+    const dropZoneText = document.getElementById('dropZoneText');
     const fileInput = document.getElementById('fileInput');
     const importBtn = document.getElementById('importBtn');
     const toast = document.getElementById('toast');
@@ -108,11 +109,15 @@
 
     /**
      * Updates the UI when a file is selected.
+     * Uses textContent to avoid XSS risks from filenames.
      */
     function handleFile(file) {
       if (file && file.type === "application/pdf") {
         selectedFile = file;
-        dropZone.querySelector('span').innerHTML = `<strong>File ready:</strong><br>${file.name}`;
+        
+        // Safety First: Use textContent for the filename
+        dropZoneText.textContent = "File ready: " + file.name;
+        
         importBtn.disabled = false;
         importBtn.classList.replace('bg-blue-600', 'bg-green-600');
       } else {
@@ -170,7 +175,6 @@
       reader.onload = (e) => {
         const fileContent = e.target.result;
         
-        // Match the function name in TypeExtraction.gs
         google.script.run
           .withSuccessHandler(importSuccess)
           .withFailureHandler(importFailure)
