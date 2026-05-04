@@ -1,6 +1,38 @@
 /**
- * Downloads an FMX PDF via the user's browser, opens an upload dialog, 
- * extracts Names and Modules using a Streaming Text Lexer, and writes to "Type_Import".
+ * CONFIGURATION: Update these lists to "teach" the Lexer about your FMX setup.
+ * =========================================================================
+ */
+
+// 1. The strict dictionary of every full module name FMX generates.
+// Use exact matches here to catch "glued" lines (Name + Module together).
+const FMX_KNOWN_MODULES = [
+  "Contractor Badge-Key Tracking request",
+  "Fleet Maintenance request",
+  "Inventory request",
+  "Maintenance request",
+  "Planned maintenance",
+  "Project request",
+  "Technology request",
+  "Transportation request"
+];
+
+// 2. Individual keywords used to identify lines that contain module data.
+// These are used for fuzzy matching when a module name is split across lines.
+const FMX_MODULE_KEYWORDS = [
+  "fleet", 
+  "maintenance", 
+  "planned", 
+  "inventory", 
+  "contractor badge", 
+  "technology", 
+  "transportation", 
+  "project", 
+  "request"
+];
+
+/**
+ * Main logic starts here.
+ * =========================================================================
  */
 
 function extractDataFromPDF() {
@@ -38,11 +70,11 @@ function showImportDialog() {
 
 function processUploadedPDF(formObject) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let tempDocId = null; 
   
   try {
     let fileBlob;
     
-    // Accept the file blob from the form
     if (formObject && formObject.fileInput) {
       fileBlob = Utilities.newBlob(formObject.fileInput.getBytes(), MimeType.PDF, "TempReport.pdf");
     } else if (typeof formObject === 'string' && formObject.includes(',')) {
@@ -52,10 +84,8 @@ function processUploadedPDF(formObject) {
       throw new Error("Invalid file upload. Please ensure you attached a file.");
     }
     
-    let tempDocId;
     const timestamp = new Date().getTime();
     
-    // Run OCR via Drive API
     try {
       const resource = { title: "Temp OCR Doc - " + timestamp, mimeType: MimeType.GOOGLE_DOCS };
       const tempFile = Drive.Files.insert(resource, fileBlob, {ocr: true});
@@ -75,10 +105,7 @@ function processUploadedPDF(formObject) {
     const doc = DocumentApp.openById(tempDocId);
     let rawText = doc.getBody().getText();
 
-    // =========================================================================
     // 1. GLOBAL SCRUBBER
-    // Vaporize headers, pagination, icons, and quotes before they break the parser
-    // =========================================================================
     rawText = rawText.replace(/Equipment Type Admin Settings/gi, '\n');
     rawText = rawText.replace(/--- PAGE \d+ ---/gi, '\n');
     rawText = rawText.replace(/Showing \d+[–-]\d+ of \d+ records/gi, '\n');
@@ -86,10 +113,8 @@ function processUploadedPDF(formObject) {
     rawText = rawText.replace(/[\uE000-\uF8FF\u25A0-\u25FF\u200B-\u200D\uFEFF☑]/g, '\n');
     rawText = rawText.replace(/["“”]/g, '');
 
-    // Split text into a pure stream of raw chunks
     let lines = rawText.split(/[\r\n\t]+/).map(l => l.trim()).filter(l => l.length > 0);
     
-    // Remove isolated table header words that survived the scrub
     lines = lines.filter(line => {
         let l = line.toLowerCase();
         return l !== 'name' && l !== 'names' && l !== 'modules' && l !== 'namesmodules' && l !== 'name modules' && l !== 'w' && l !== ',';
@@ -100,13 +125,11 @@ function processUploadedPDF(formObject) {
     let currentName = "";
     let currentModule = "";
 
-    // Helper to safely commit a parsed row to the final array
     function flushRecord() {
         if (currentName) {
             let n = currentName.replace(/^,+|,+$/g, '').replace(/\s+/g, ' ').trim();
             let m = currentModule.replace(/^,+|,+$/g, '').replace(/\s+/g, ' ').trim();
 
-            // Fix commas dropped by OCR (e.g. "Maintenance requestPlanned maintenance")
             m = m.replace(/request(?=[A-Z])/gi, 'request, ');
             m = m.replace(/maintenance(?=[A-Z])/gi, 'maintenance, ');
             m = m.replace(/,(\s*,)+/g, ',').trim();
@@ -123,25 +146,8 @@ function processUploadedPDF(formObject) {
         currentModule = "";
     }
 
-    // =========================================================================
-    // 2. STREAMING LEXER WITH STRICT DICTIONARY
-    // Uses your exact list of modules to flawlessly identify cuts
-    // =========================================================================
-    
-    // The strict dictionary of every module FMX generates 
-    const knownModules = [
-        "Contractor Badge-Key Tracking request",
-        "Fleet Maintenance request",
-        "Inventory request",
-        "Maintenance request",
-        "Planned maintenance",
-        "Project request",
-        "Technology request", // Kept from your previous output
-        "Transportation request" // Kept from your previous output
-    ];
-    
-    // Dynamically build a Regex pattern from the dictionary to catch glued lines
-    const moduleRegexStr = knownModules.map(m => m.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
+    // 2. STREAMING LEXER
+    const moduleRegexStr = FMX_KNOWN_MODULES.map(m => m.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
     const gluedPattern = new RegExp(`^(.*?)\\s*((?:${moduleRegexStr})(?:,\\s*|$).*)`, 'i');
 
     for (let i = 0; i < lines.length; i++) {
@@ -155,12 +161,11 @@ function processUploadedPDF(formObject) {
 
             if (n) {
                 n = n.replace(/^,/, '').trim();
-                // FMX Hierarchy Rule: Any line with a ">" is ALWAYS a brand new item.
                 if (n.includes('>') && currentName && !currentModule) {
                     flushRecord();
                     currentName = n;
                 } else if (currentName && !currentModule) {
-                    currentName += " " + n; // Wrap continuation
+                    currentName += " " + n; 
                 } else {
                     flushRecord();
                     currentName = n;
@@ -175,18 +180,15 @@ function processUploadedPDF(formObject) {
             continue;
         }
 
-        // B. Check for Pure Module Chunks
+        // B. Check for Pure Module Chunks using Config
         let checkLine = line.replace(/^,/, '').trim();
         let isMod = false;
         
-        // Check if the line is just a placeholder dash/none
         if (/^none$|^\(none\)$|^-$/i.test(checkLine)) {
             if (!checkLine.includes('>')) isMod = true;
         } else {
-            // Check against our strict dictionary keywords
             let lowerCheck = checkLine.toLowerCase();
-            const modKeywords = ["fleet", "maintenance", "planned", "inventory", "contractor badge", "technology", "transportation", "project", "request"];
-            for (let kw of modKeywords) {
+            for (let kw of FMX_MODULE_KEYWORDS) {
                 if (lowerCheck.includes(kw) && !lowerCheck.includes('>')) {
                     isMod = true;
                     break;
@@ -196,7 +198,6 @@ function processUploadedPDF(formObject) {
 
         if (isMod) {
             if (currentModule) {
-                // Determine if we need to append with a comma or just a space to fix broken wraps
                 let segments = currentModule.split(',');
                 let lastSeg = segments[segments.length - 1].trim().toLowerCase();
                 let isComplete = lastSeg.endsWith('request') || lastSeg.endsWith('planned maintenance') || lastSeg === 'none' || lastSeg === '(none)' || lastSeg === '-';
@@ -210,9 +211,8 @@ function processUploadedPDF(formObject) {
                 currentModule = checkLine;
             }
         } else {
-            // C. Must be a Name Chunk!
+            // C. Name Chunk
             if (currentModule) {
-                // If we were reading modules and now hit a name, the previous item is complete.
                 flushRecord();
             }
             
@@ -229,13 +229,9 @@ function processUploadedPDF(formObject) {
             }
         }
     }
-    flushRecord(); // Catch the final item
+    flushRecord(); 
 
-    DriveApp.getFileById(tempDocId).setTrashed(true);
-    
-    // =========================================================================
     // 3. WRITE TO SPREADSHEET
-    // =========================================================================
     if (extractedData.length > 0) {
       const targetRange = ss.getRangeByName("Type_Import");
       
@@ -261,5 +257,13 @@ function processUploadedPDF(formObject) {
     
   } catch (error) {
     throw new Error(error.message || error.toString()); 
+  } finally {
+    if (tempDocId) {
+      try {
+        DriveApp.getFileById(tempDocId).setTrashed(true);
+      } catch (cleanupError) {
+        console.warn("Cleanup failed: " + tempDocId);
+      }
+    }
   }
 }
