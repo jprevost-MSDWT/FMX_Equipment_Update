@@ -1,8 +1,8 @@
 /*
 Project Name: FMX Equipment Import non-Gem
-Project Version: 3.00
+Project Version: 4.00
 Filename: DataManip.gs
-File Version: 3.01
+File Version: 3.02
 Chat link: [Insert Link]
 */
 
@@ -38,7 +38,7 @@ function processImportedData() {
     // 2. Identify Header Row in Source (Dynamic Search)
     const requiredMarker = CONFIG.mapping.required[0];
     let headerRowIndex = -1;
-    for (let i = 0; i < Math.min(20, sourceData.length); i++) {
+    for (let i = 0; i < Math.min(CONFIG.mapping.headerSearchLimit, sourceData.length); i++) {
       if (sourceData[i].includes(requiredMarker)) {
         headerRowIndex = i;
         break;
