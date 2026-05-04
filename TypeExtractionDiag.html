@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: calc(100vh - 40px);
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    #dropZone {
+      width: 100%;
+      height: 120px;
+      border: 2px dashed #007bff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #007bff;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #e9f3ff;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    #dropZone.dragover {
+      background-color: #d1e7ff;
+      border-color: #0056b3;
+    }
+    #fileInput {
+      display: none;
+    }
+    /* Toast Notification Animation */
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .toast-animate {
+      animation: slideUp 0.3s ease-out forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="mb-4 text-center">
+    <p class="text-sm text-gray-600 font-bold">File Downloaded!</p>
+    <p class="text-xs text-gray-500">Drop the FMX PDF below to extract data.</p>
+  </div>
+
+  <div id="dropZone">
+    <span>Drag & Drop the PDF here<br>or click to select</span>
+  </div>
+  <input type="file" id="fileInput" accept=".pdf">
+
+  <div id="buttonContainer" class="mt-5 w-full">
+    <button id="importBtn" disabled class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
+      Extract & Import Data
+    </button>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast" class="hidden fixed bottom-4 left-4 right-4 p-3 rounded-lg text-white text-sm font-medium shadow-lg toast-animate z-50">
+    <span id="toastMessage"></span>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const importBtn = document.getElementById('importBtn');
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    let selectedFile = null;
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+      handleFile(e.target.files[0]);
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('dragover');
+      handleFile(e.dataTransfer.files[0]);
+    });
+
+    /**
+     * Updates the UI when a file is selected.
+     */
+    function handleFile(file) {
+      if (file && file.type === "application/pdf") {
+        selectedFile = file;
+        dropZone.querySelector('span').innerHTML = `<strong>File ready:</strong><br>${file.name}`;
+        importBtn.disabled = false;
+        importBtn.classList.replace('bg-blue-600', 'bg-green-600');
+      } else {
+        showToast("Please select a valid PDF file.", true);
+      }
+    }
+
+    /**
+     * Displays a toast message instead of a browser alert.
+     */
+    function showToast(msg, isError = false) {
+      toastMessage.textContent = msg;
+      toast.classList.remove('hidden', 'bg-red-500', 'bg-blue-600', 'bg-green-600');
+      toast.classList.add(isError ? 'bg-red-500' : 'bg-blue-600');
+      
+      if (isError) {
+        setTimeout(() => {
+          toast.classList.add('hidden');
+        }, 5000);
+      }
+    }
+
+    /**
+     * Callback for successful import.
+     */
+    function importSuccess() {
+      showToast("Extraction Complete!", false);
+      importBtn.textContent = 'Success!';
+      importBtn.className = "w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg";
+      
+      setTimeout(() => {
+        google.script.host.close();
+      }, 1500);
+    }
+
+    /**
+     * Callback for failed import.
+     */
+    function importFailure(error) {
+      showToast('Error: ' + error.message, true);
+      importBtn.disabled = false;
+      importBtn.textContent = 'Try Again';
+      importBtn.classList.replace('bg-blue-600', 'bg-red-600');
+    }
+
+    importBtn.addEventListener('click', () => {
+      if (!selectedFile) return;
+
+      importBtn.disabled = true;
+      importBtn.textContent = 'Processing OCR...';
+      showToast("Running Extraction...", false);
+
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const fileContent = e.target.result;
+        
+        // Match the function name in TypeExtraction.gs
+        google.script.run
+          .withSuccessHandler(importSuccess)
+          .withFailureHandler(importFailure)
+          .processUploadedPDF(fileContent);
+      };
+      
+      reader.onerror = () => {
+        showToast("Error reading file locally.", true);
+        importBtn.disabled = false;
+        importBtn.textContent = 'Import';
+      };
+
+      reader.readAsDataURL(selectedFile);
+    });
+  </script>
+</body>
+</html>
