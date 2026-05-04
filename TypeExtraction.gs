@@ -252,7 +252,7 @@ function processUploadedPDF(formObject) {
         throw new Error("Could not find the named range 'Type_Import'.");
       }
     } else {
-      throw new Error("No data was extracted.");
+      throw new Error("No data was extracted. The file might not match the expected format.");
     }
     
   } catch (error) {
