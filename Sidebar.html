@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: Sidebar.html
-File Version: 3.05
+File Version: 3.11
 Chat link: [Insert Link]
 -->
 
@@ -36,6 +36,9 @@ Chat link: [Insert Link]
       #toast-container.show { visibility: visible; opacity: 1; bottom: 50px; }
       #toast-container.error { background-color: #d93025; }
       #toast-container.success { background-color: #188038; }
+      .section-divider { border: 0; border-top: 2px solid #000000; margin: 25px 0 15px 0; }
+      .green-button { background-color: #B3FFCC !important; color: #000000 !important; border: 1px solid #8ce3af !important; }
+      .green-button:hover { background-color: #99e6b3 !important; }
     </style>
   </head>
   <body>
@@ -66,6 +69,18 @@ Chat link: [Insert Link]
            <div id="settings-container" class="checkbox-group"><div class="loading-text">Loading options...</div></div>
          </div>
          <button id="save-settings-btn" class="action-button" onclick="saveSettings()">Apply Selection</button>
+
+         <hr class="section-divider">
+
+         <div class="instructions" style="margin-top: 0px; font-size: 0.75em;">
+           Below settings are for configuration settings &amp; updates.
+         </div>
+
+         <div class="instructions" style="margin-top: 15px;">
+           <div class="required-title" style="margin-bottom: 8px; color: #000000;">Data Extractions</div>
+           <button class="action-button green-button" style="margin-top: 0;" onclick="runTypeExtraction()">Full Type Extraction</button>
+           <button class="action-button green-button" onclick="runTypeExtractionImport()">Type Extraction Import</button>
+         </div>
       </div>
     </div>
     
@@ -116,6 +131,14 @@ Chat link: [Insert Link]
              btn.disabled = false;
              btn.textContent = "Apply Selection";
           }).saveSelectedHeaders(finalSelection);
+      }
+
+      function runTypeExtraction() {
+        google.script.run.withFailureHandler(showError).extractDataFromPDF();
+      }
+
+      function runTypeExtractionImport() {
+        google.script.run.withFailureHandler(showError).showImportDialog();
       }
 
       function openTab(evt, tabName) {
