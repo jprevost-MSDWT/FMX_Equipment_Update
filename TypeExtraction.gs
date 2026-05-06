@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: TypeExtraction_Update.gs
-File Version: 2.12
+File Version: 2.13
 Chat link: [Insert Link]
 */
 
@@ -226,8 +226,6 @@ function processUploadedPDF(formObject) {
       sheet.getRange(targetRange.getRow(), targetRange.getColumn(), extractedData.length, 2).setValues(extractedData);
       ss.toast(`Extracted ${extractedData.length} records!`, "Success");
     }
-  } catch (e) {
-    throw e;
   } finally {
     // --- UPDATED: Robust temporary file cleanup ---
     if (tempDocId) {
