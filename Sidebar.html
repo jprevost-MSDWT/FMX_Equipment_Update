@@ -1,8 +1,8 @@
 <!--
 Project Name: FMX Equipment Import non-Gem
-Project Version: 4.00
+Project Version: 4.10
 Filename: Sidebar.html
-File Version: 3.11
+File Version: 3.12
 Chat link: [Insert Link]
 -->
 
@@ -54,10 +54,6 @@ Chat link: [Insert Link]
       
       <div id="MainActions" class="tabcontent" style="display: block;">
         <button class="action-button" onclick="runImport()">Import Edit</button>
-        <button id="manual-process-btn" class="action-button secondary-button" onclick="runManualProcess()">Refresh Data Mapping</button>
-        <div class="instructions" style="margin-top:10px; font-size:0.75em;">
-          Use <b>Refresh Data Mapping</b> if you changed header selections and want to re-sync the Equipment Edit sheet.
-        </div>
       </div>
 
       <div id="Settings" class="tabcontent">
@@ -73,6 +69,11 @@ Chat link: [Insert Link]
            <div id="settings-container" class="checkbox-group"><div class="loading-text">Loading options...</div></div>
          </div>
          <button id="save-settings-btn" class="action-button" onclick="saveSettings()">Apply Selection</button>
+
+         <button id="manual-process-btn" class="action-button secondary-button" onclick="runManualProcess()">Refresh Data Mapping</button>
+         <div class="instructions" style="margin-top:10px; font-size:0.75em;">
+           Use <b>Refresh Data Mapping</b> if you changed header selections and want to re-sync the Equipment Edit sheet.
+         </div>
 
          <hr class="section-divider">
 
