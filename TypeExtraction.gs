@@ -1,8 +1,8 @@
 /*
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
-Filename: TypeExtraction.gs
-File Version: 2.11
+Filename: TypeExtraction_Update.gs
+File Version: 2.12
 Chat link: [Insert Link]
 */
 
@@ -208,9 +208,6 @@ function processUploadedPDF(formObject) {
             currentModule = (currentModule ? currentModule + ", " : "") + checkLine;
         } else {
             let isCont = /^[a-z\(]/.test(checkLine) || checkLine.startsWith('>');
-            if (!isCont && (isRoot || checkLine.includes('>'))) {
-                flushRecord();
-            }
             
             if (currentName && isCont) {
                 currentName += " " + checkLine;
@@ -230,7 +227,7 @@ function processUploadedPDF(formObject) {
       ss.toast(`Extracted ${extractedData.length} records!`, "Success");
     }
   } catch (e) {
-    throw new Error(e.message || e);
+    throw e;
   } finally {
     // --- UPDATED: Robust temporary file cleanup ---
     if (tempDocId) {
@@ -242,3 +239,5 @@ function processUploadedPDF(formObject) {
     }
   }
 }
+
+// EOF: TypeExtraction_Update.gs
