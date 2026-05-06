@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: TypeExtraction.gs
-File Version: 2.08
+File Version: 2.11
 Chat link: [Insert Link]
 */
 
@@ -211,8 +211,13 @@ function processUploadedPDF(formObject) {
             if (!isCont && (isRoot || checkLine.includes('>'))) {
                 flushRecord();
             }
-            currentName = (currentName && isCont ? currentName + " " : (currentName ? flushRecord() || checkLine : checkLine));
-            if (!currentName) currentName = checkLine;
+            
+            if (currentName && isCont) {
+                currentName += " " + checkLine;
+            } else {
+                if (currentName) flushRecord();
+                currentName = checkLine;
+            }
         }
     }
     flushRecord();
@@ -225,8 +230,15 @@ function processUploadedPDF(formObject) {
       ss.toast(`Extracted ${extractedData.length} records!`, "Success");
     }
   } catch (e) {
-    throw new Error(e.message);
+    throw new Error(e.message || e);
   } finally {
-    if (tempDocId) DriveApp.getFileById(tempDocId).setTrashed(true);
+    // --- UPDATED: Robust temporary file cleanup ---
+    if (tempDocId) {
+      try {
+        DriveApp.getFileById(tempDocId).setTrashed(true);
+      } catch (cleanupError) {
+        console.warn("Temporary file cleanup failed: " + tempDocId);
+      }
+    }
   }
 }
