@@ -92,14 +92,3 @@ function getSelectedHeadersList(ss) {
     .filter(h => h !== "");
 }
 
-/**
- * Placeholder for future formatting logic.
- */
-function formatEquipmentEditSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.sheets.edit);
-  if (!sheet) return;
-  
-  // Example: Auto-resize columns
-  sheet.autoResizeColumns(1, sheet.getLastColumn());
-}
