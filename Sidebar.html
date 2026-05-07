@@ -127,7 +127,7 @@ Chat link: [Insert Link]
         const checkboxes = document.querySelectorAll('#settings-container input[type="checkbox"]:checked');
         const userSelected = Array.from(checkboxes).map(cb => cb.value);
         const finalSelection = [...requiredHeaders, ...userSelected];
-        const defaultLabel = "Apply & Sync Data Mapping";
+        const defaultLabel = btn.textContent.trim();
         
         btn.disabled = true;
         btn.textContent = "Saving Selection...";
