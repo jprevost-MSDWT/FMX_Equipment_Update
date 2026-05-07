@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.10
 Filename: Sidebar.html
-File Version: 3.19
+File Version: 3.20
 Chat link: [Insert Link]
 -->
 
@@ -120,39 +120,40 @@ Chat link: [Insert Link]
 
       /**
        * Combined function to save headers and then trigger data mapping sync.
+       * Fixes indentation and ensures consistent UI labels during the process.
        */
       function saveAndSyncSettings() {
         const btn = document.getElementById('save-settings-btn');
         const checkboxes = document.querySelectorAll('#settings-container input[type="checkbox"]:checked');
         const userSelected = Array.from(checkboxes).map(cb => cb.value);
         const finalSelection = [...requiredHeaders, ...userSelected];
+        const defaultLabel = "Apply & Sync Data Mapping";
         
         btn.disabled = true;
         btn.textContent = "Saving Selection...";
         
         google.script.run
           .withSuccessHandler(function() {
-             showToast("Selection saved. Syncing data...", false);
-             btn.textContent = "Syncing Data...";
-             
-             // Trigger second step: Refresh Data Mapping
-             google.script.run
-               .withSuccessHandler(function() {
-                  showToast("Selection applied and Sync complete!", false);
-                  btn.disabled = false;
-                  btn.textContent = "Apply & Sync Data Mapping";
-               })
-               .withFailureHandler(function(err) {
-                  showError(err);
-                  btn.disabled = false;
-                  btn.textContent = "Apply & Sync Data Mapping";
-               })
-               .processImportedData();
+            showToast("Selection saved. Syncing data...", false);
+            btn.textContent = "Syncing Data...";
+            
+            google.script.run
+              .withSuccessHandler(function() {
+                showToast("Selection applied and Sync complete!", false);
+                btn.disabled = false;
+                btn.textContent = defaultLabel;
+              })
+              .withFailureHandler(function(err) {
+                showError(err);
+                btn.disabled = false;
+                btn.textContent = defaultLabel;
+              })
+              .processImportedData();
           })
           .withFailureHandler(function(err) {
-             showError(err);
-             btn.disabled = false;
-             btn.textContent = "Apply & Sync Data Mapping";
+            showError(err);
+            btn.disabled = false;
+            btn.textContent = defaultLabel;
           })
           .saveSelectedHeaders(finalSelection);
       }
