@@ -102,17 +102,14 @@ Chat link: [Insert Link]
        * @param {string} tabName - ID of the tab to open.
        */
       function openTab(evt, tabName) {
-        var i, tabcontent, tablinks;
-        tabcontent = document.getElementsByClassName("tabcontent");
-        for (i = 0; i < tabcontent.length; i++) {
-          tabcontent[i].classList.add('hidden');
-          tabcontent[i].classList.remove('block');
-        }
-        tablinks = document.getElementsByClassName("tablinks");
-        for (i = 0; i < tablinks.length; i++) {
-          tablinks[i].classList.remove('bg-[#ccc]', 'text-black');
-          tablinks[i].classList.add('text-[#5f6368]');
-        }
+        document.querySelectorAll(".tabcontent").forEach(el => {
+          el.classList.add('hidden');
+          el.classList.remove('block');
+        });
+        document.querySelectorAll(".tablinks").forEach(el => {
+          el.classList.remove('bg-[#ccc]', 'text-black');
+          el.classList.add('text-[#5f6368]');
+        });
         
         const target = document.getElementById(tabName);
         target.classList.remove('hidden');
