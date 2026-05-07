@@ -1,8 +1,8 @@
 <!--
 Project Name: FMX Equipment Import non-Gem
-Project Version: 4.00
+Project Version: 4.10
 Filename: Sidebar.html
-File Version: 3.11
+File Version: 3.15
 Chat link: [Insert Link]
 -->
 
@@ -11,88 +11,115 @@ Chat link: [Insert Link]
   <head>
     <base target="_top">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      body { font-family: Arial, sans-serif; background-color: #f0f2f5; padding: 8px; margin: 0; }
-      .container { background-color: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-      .tab { overflow: hidden; border-bottom: 1px solid #ccc; background-color: #f1f1f1; border-radius: 4px 4px 0 0; display: flex; }
-      .tab button { background-color: inherit; border: none; outline: none; cursor: pointer; padding: 10px 16px; transition: 0.3s; font-size: 0.9em; flex: 1; border-radius: 4px 4px 0 0; font-weight: bold; color: #5f6368; }
-      .tab button:hover { background-color: #ddd; }
-      .tab button.active { background-color: #ccc; color: #000; }
-      .tabcontent { display: none; padding: 12px 0px; border-top: none; }
-      .action-button { width: 100%; padding: 12px; margin-top: 8px; border: none; background-color: #8ab4f8; color: #000000; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 0.9em; text-align: left; transition: background-color 0.2s, color 0.2s; }
-      .action-button:hover { background-color: #3367D6; color: #ffffff; }
-      .secondary-button { background-color: #e8f0fe; color: #1967d2; }
-      .instructions { margin-top: 15px; font-size: 0.8em; color: #5f6368; padding: 10px; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; }
-      .required-box { margin-bottom: 10px; padding: 8px; background-color: #eef3fe; border-left: 4px solid #3367D6; border-radius: 4px; }
-      .required-title { font-weight: bold; font-size: 0.85em; color: #3367D6; margin-bottom: 4px; }
-      .required-list { font-size: 0.8em; color: #444; display: flex; flex-wrap: wrap; gap: 5px; }
-      .required-item { background: #fff; padding: 2px 6px; border-radius: 3px; border: 1px solid #d1d9e6; }
-      .checkbox-group { display: flex; flex-direction: column; gap: 10px; max-height: 200px; overflow-y: auto; margin-top: 10px; padding: 8px; border: 1px solid #eee; border-radius: 4px; background: #fff; }
-      .checkbox-label { display: flex; align-items: center; font-size: 0.9em; color: #333; cursor: pointer; user-select: none; }
-      .checkbox-label input { margin-right: 12px; width: 16px; height: 16px; cursor: pointer; }
-      .loading-text { color: #666; font-style: italic; padding: 10px; text-align: center; }
-      .refresh-btn { float: right; cursor: pointer; border: none; background: none; color: #1a73e8; font-size: 0.9em; padding: 0; font-weight: bold; }
-      #toast-container { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: #333; color: #fff; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1; left: 50%; bottom: 30px; font-size: 14px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+      /* Custom Scrollbar for the checkbox group */
+      .checkbox-group::-webkit-scrollbar { width: 6px; }
+      .checkbox-group::-webkit-scrollbar-track { background: #f1f1f1; }
+      .checkbox-group::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+      
+      /* Toast animations */
+      #toast-container { visibility: hidden; opacity: 0; transition: opacity 0.5s, bottom 0.5s; }
       #toast-container.show { visibility: visible; opacity: 1; bottom: 50px; }
-      #toast-container.error { background-color: #d93025; }
-      #toast-container.success { background-color: #188038; }
-      .section-divider { border: 0; border-top: 2px solid #000000; margin: 25px 0 15px 0; }
-      .green-button { background-color: #B3FFCC; color: #000000; border: 1px solid #8ce3af; }
-      .green-button:hover { background-color: #99e6b3; }
-      .instructions-small { margin-top: 0; font-size: 0.75em; }
-      .instructions-group { margin-top: 15px; }
-      .extraction-title { margin-bottom: 8px; color: #000000; }
-      .mt-0 { margin-top: 0; }
     </style>
   </head>
-  <body>
-    <div class="container">
-      <div class="tab">
-        <button class="tablinks active" onclick="openTab(event, 'MainActions')" id="defaultOpen">Actions</button>
-        <button class="tablinks" onclick="openTab(event, 'Settings')">Settings</button>
+  <body class="bg-[#f0f2f5] p-2 m-0 font-sans text-sm">
+    <div class="bg-white p-[15px] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)]">
+      
+      <div class="flex border-b border-[#ccc] bg-[#f1f1f1] rounded-t-md overflow-hidden">
+        <button id="defaultOpen" class="tablinks flex-1 py-[10px] px-4 text-[0.9em] font-bold text-[#5f6368] transition-colors hover:bg-[#ddd] outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400" onclick="openTab(event, 'MainActions')">
+          Actions
+        </button>
+        <button class="tablinks flex-1 py-[10px] px-4 text-[0.9em] font-bold text-[#5f6368] transition-colors hover:bg-[#ddd] outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400" onclick="openTab(event, 'Settings')">
+          Settings
+        </button>
       </div>
       
-      <div id="MainActions" class="tabcontent" style="display: block;">
-        <button class="action-button" onclick="runImport()">Import Edit</button>
-        <button id="manual-process-btn" class="action-button secondary-button" onclick="runManualProcess()">Refresh Data Mapping</button>
-        <div class="instructions" style="margin-top:10px; font-size:0.75em;">
-          Use <b>Refresh Data Mapping</b> if you changed header selections and want to re-sync the Equipment Edit sheet.
-        </div>
+      <div id="MainActions" class="tabcontent py-3 block">
+        <button class="w-full p-3 mt-2 bg-[#8ab4f8] text-black font-bold rounded text-left text-[0.9em] hover:bg-[#3367D6] hover:text-white transition-all shadow-sm active:scale-[0.98]" onclick="runImport()">
+          Import Edit
+        </button>
       </div>
 
-      <div id="Settings" class="tabcontent">
-         <div class="instructions">
-           <div class="required-box">
-             <div class="required-title">Core Headers (Always Included):</div>
-             <div id="required-headers-list" class="required-list"><span class="loading-text">Loading...</span></div>
+      <div id="Settings" class="tabcontent py-3 hidden">
+         <div class="mt-[15px] text-[0.8em] text-[#5f6368] p-[10px] bg-[#f8f9fa] border border-[#dee2e6] rounded">
+           <div class="mb-[10px] p-2 bg-[#eef3fe] border-left-4 border-[#3367D6] rounded">
+             <div class="font-bold text-[0.85em] text-[#3367D6] mb-1">Core Headers (Always Included):</div>
+             <div id="required-headers-list" class="flex flex-wrap gap-[5px] text-[0.8em] text-[#444]">
+               <span class="italic text-gray-400">Loading...</span>
+             </div>
            </div>
-           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-             <strong>Optional Headers:</strong>
-             <button class="refresh-btn" onclick="loadSettings()" title="Reload list">&#x21bb; Refresh</button>
+           
+           <div class="flex justify-between items-center mt-[10px]">
+             <strong class="text-gray-700">Optional Headers:</strong>
+             <button class="text-[#1a73e8] font-bold hover:underline" onclick="loadSettings()" title="Reload list">&#x21bb; Refresh</button>
            </div>
-           <div id="settings-container" class="checkbox-group"><div class="loading-text">Loading options...</div></div>
-         </div>
-         <button id="save-settings-btn" class="action-button" onclick="saveSettings()">Apply Selection</button>
 
-         <hr class="section-divider">
-
-         <div class="instructions instructions-small">
-           Below settings are for configuration settings &amp; updates.
+           <div id="settings-container" class="checkbox-group flex flex-col gap-[10px] max-h-[200px] overflow-y-auto mt-[10px] p-2 border border-[#eee] rounded bg-white">
+             <div class="italic text-gray-400 text-center p-2">Loading options...</div>
+           </div>
          </div>
 
-         <div class="instructions instructions-group">
-           <div class="required-title extraction-title">Data Extractions</div>
-           <button class="action-button green-button mt-0" onclick="runTypeExtraction()">Full Type Extraction</button>
-           <button class="action-button green-button" onclick="runTypeExtractionImport()">Type Extraction Import</button>
+         <button id="save-settings-btn" class="w-full p-3 mt-2 bg-[#8ab4f8] text-black font-bold rounded text-left text-[0.9em] hover:bg-[#3367D6] hover:text-white transition-all shadow-sm" onclick="saveSettings()">
+           Apply Selection
+         </button>
+         
+         <button id="manual-process-btn" class="w-full p-3 mt-2 bg-[#e8f0fe] text-[#1967d2] font-bold rounded text-left text-[0.9em] hover:bg-blue-100 transition-all shadow-sm" onclick="runManualProcess()">
+           Refresh Data Mapping
+         </button>
+
+         <div class="mt-[10px] text-[0.75em] text-[#5f6368] p-2 bg-[#f8f9fa] border border-[#dee2e6] rounded">
+           Use <b>Refresh Data Mapping</b> if you changed header selections and want to re-sync the Equipment Edit sheet.
+         </div>
+
+         <hr class="border-t-2 border-black my-[25px]">
+
+         <div class="text-[0.75em] text-[#5f6368] mb-3 italic">
+           Below settings are for configuration settings & updates.
+         </div>
+
+         <div class="mt-[15px] space-y-2">
+           <div class="font-bold text-[0.85em] text-black mb-2">Data Extractions</div>
+           <button class="w-full p-3 bg-[#B3FFCC] text-black font-bold border border-[#8ce3af] rounded text-left text-[0.9em] hover:bg-[#99e6b3] transition-all" onclick="runTypeExtraction()">
+             Full Type Extraction
+           </button>
+           <button class="w-full p-3 bg-[#B3FFCC] text-black font-bold border border-[#8ce3af] rounded text-left text-[0.9em] hover:bg-[#99e6b3] transition-all" onclick="runTypeExtractionImport()">
+             Type Extraction Import
+           </button>
          </div>
       </div>
     </div>
     
-    <div id="toast-container"></div>
+    <div id="toast-container" class="fixed left-1/2 -translate-x-1/2 bottom-[30px] min-w-[250px] p-4 rounded text-white text-center text-sm z-50 shadow-lg"></div>
 
     <script>
       var settingsLoaded = false;
       var requiredHeaders = [];
+
+      /**
+       * Opens a specific tab and updates UI state.
+       * @param {Event} evt - The click event.
+       * @param {string} tabName - ID of the tab to open.
+       */
+      function openTab(evt, tabName) {
+        document.querySelectorAll(".tabcontent").forEach(el => {
+          el.classList.add('hidden');
+          el.classList.remove('block');
+        });
+        document.querySelectorAll(".tablinks").forEach(el => {
+          el.classList.remove('bg-[#ccc]', 'text-black');
+          el.classList.add('text-[#5f6368]');
+        });
+        
+        const target = document.getElementById(tabName);
+        target.classList.remove('hidden');
+        target.classList.add('block');
+        
+        evt.currentTarget.classList.add('bg-[#ccc]', 'text-black');
+        evt.currentTarget.classList.remove('text-[#5f6368]');
+        
+        if (tabName === 'Settings' && !settingsLoaded) loadSettings();
+      }
 
       function runImport() { 
         google.script.run.withFailureHandler(showError).promptForImport(); 
@@ -145,26 +172,15 @@ Chat link: [Insert Link]
         google.script.run.withFailureHandler(showError).showImportDialog();
       }
 
-      function openTab(evt, tabName) {
-        var i, tabcontent, tablinks;
-        tabcontent = document.getElementsByClassName("tabcontent");
-        for (i = 0; i < tabcontent.length; i++) tabcontent[i].style.display = "none";
-        tablinks = document.getElementsByClassName("tablinks");
-        for (i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
-        document.getElementById(tabName).style.display = "block";
-        evt.currentTarget.className += " active";
-        if (tabName === 'Settings' && !settingsLoaded) loadSettings();
-      }
-
       function loadSettings() {
         const container = document.getElementById('settings-container');
         const reqList = document.getElementById('required-headers-list');
-        container.innerHTML = '<div class="loading-text">Fetching data...</div>';
+        container.innerHTML = '<div class="text-center italic text-gray-400 p-2">Fetching data...</div>';
         
         google.script.run
           .withSuccessHandler(function(config) {
             requiredHeaders = config.required;
-            reqList.innerHTML = config.required.map(h => `<span class="required-item">${h}</span>`).join('');
+            reqList.innerHTML = config.required.map(h => `<span class="bg-white px-[6px] py-[2px] rounded border border-[#d1d9e6] shadow-sm">${h}</span>`).join('');
             renderAllCheckboxes(config.defaults, config.optionals);
           })
           .withFailureHandler(showError)
@@ -179,19 +195,18 @@ Chat link: [Insert Link]
           ...defaults.map(v => ({ value: v, checked: true })),
           ...optionals.map(v => ({ value: v, checked: false }))
         ];
-
         if (allOptions.length === 0) { 
-           container.innerHTML = '<div class="loading-text">No headers found.</div>'; 
+           container.innerHTML = '<div class="text-center italic text-gray-400 p-2">No headers found.</div>'; 
            return; 
         }
-
         var fragment = document.createDocumentFragment();
         
         allOptions.forEach(function(item) {
           var label = document.createElement('label');
-          label.className = 'checkbox-label';
+          label.className = 'flex items-center text-[0.9em] text-[#333] cursor-pointer select-none py-1 hover:bg-gray-50 rounded transition-colors';
           var input = document.createElement('input');
           input.type = 'checkbox';
+          input.className = 'mr-3 w-4 h-4 cursor-pointer accent-blue-600';
           input.value = item.value;
           if (item.checked) input.checked = true;
           
@@ -206,14 +221,22 @@ Chat link: [Insert Link]
 
       function showError(err) { showToast("Error: " + (err.message || err), true); }
       
+      /**
+       * Displays a toast message.
+       * @param {string} message - The text to display.
+       * @param {boolean} isError - Whether it is an error (red) or success (green).
+       */
       function showToast(message, isError) {
         var x = document.getElementById("toast-container");
         x.textContent = message;
-        x.className = "show " + (isError ? "error" : "success");
-        setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+        x.className = "show " + (isError ? "bg-[#d93025]" : "bg-[#188038]") + " fixed left-1/2 -translate-x-1/2 bottom-[30px] min-w-[250px] p-4 rounded text-white text-center text-sm z-50 shadow-lg";
+        setTimeout(function(){ 
+          x.classList.remove("show");
+        }, 3000);
       }
-
+      
       document.getElementById("defaultOpen").click();
     </script>
   </body>
 </html>
+<!--// EOF: Sidebar.html -->
