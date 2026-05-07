@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: DataManip.gs
-File Version: 3.02
+File Version: 3.03
 Chat link: [Insert Link]
 */
 
@@ -92,3 +92,13 @@ function getSelectedHeadersList(ss) {
     .filter(h => h !== "");
 }
 
+/**
+ * Sidebar wrapper: saves the selected headers then re-syncs Equipment_Edit in one round trip.
+ * Keeps saveSelectedHeaders() and processImportedData() independently callable for other contexts.
+ * @param {string[]} selectedHeaders - The full list of headers (required + user-selected) to save and apply.
+ * @return {string} Final status message from processImportedData.
+ */
+function saveAndProcessHeaders(selectedHeaders) {
+  saveSelectedHeaders(selectedHeaders);
+  return processImportedData();
+}
