@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.10
 Filename: Sidebar.html
-File Version: 3.16
+File Version: 3.17
 Chat link: [Insert Link]
 -->
 
@@ -27,7 +27,7 @@ Chat link: [Insert Link]
     <div class="bg-white p-[15px] rounded-lg shadow-[0_4px_8px_rgba(0,0,0,0.1)]">
       
       <div class="flex border-b border-[#ccc] bg-[#f1f1f1] rounded-t-md overflow-hidden">
-        <button id="defaultOpen" class="tablinks flex-1 py-[10px] px-4 text-[0.9em] font-bold text-[#5f6368] transition-colors hover:bg-[#ddd] outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400" onclick="openTab(event, 'MainActions')">
+        <button id="defaultOpen" class="tablinks active flex-1 py-[10px] px-4 text-[0.9em] font-bold text-[#5f6368] transition-colors hover:bg-[#ddd] outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400" onclick="openTab(event, 'MainActions')">
           Actions
         </button>
         <button class="tablinks flex-1 py-[10px] px-4 text-[0.9em] font-bold text-[#5f6368] transition-colors hover:bg-[#ddd] outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400" onclick="openTab(event, 'Settings')">
@@ -90,11 +90,13 @@ Chat link: [Insert Link]
       </div>
     </div>
     
+    <!-- Updated Toast Container with persistent base classes -->
     <div id="toast-container" class="fixed left-1/2 -translate-x-1/2 bottom-[30px] min-w-[250px] p-4 rounded text-white text-center text-sm z-50 shadow-lg"></div>
 
     <script>
       var settingsLoaded = false;
       var requiredHeaders = [];
+      var toastTimeout; // Persistent variable for timeout management
 
       /**
        * Opens a specific tab and updates UI state.
@@ -222,15 +224,23 @@ Chat link: [Insert Link]
       function showError(err) { showToast("Error: " + (err.message || err), true); }
       
       /**
-       * Displays a toast message.
+       * Displays a toast message using optimized classList logic and timeout management.
        * @param {string} message - The text to display.
        * @param {boolean} isError - Whether it is an error (red) or success (green).
        */
       function showToast(message, isError) {
-        var x = document.getElementById("toast-container");
+        const x = document.getElementById("toast-container");
         x.textContent = message;
-        x.className = "show " + (isError ? "bg-[#d93025]" : "bg-[#188038]") + " fixed left-1/2 -translate-x-1/2 bottom-[30px] min-w-[250px] p-4 rounded text-white text-center text-sm z-50 shadow-lg";
-        setTimeout(function(){ 
+        
+        // Clear existing timeout to prevent premature hiding
+        if (toastTimeout) clearTimeout(toastTimeout);
+        
+        // Toggle state-specific classes
+        x.classList.remove("bg-[#d93025]", "bg-[#188038]");
+        x.classList.add("show", isError ? "bg-[#d93025]" : "bg-[#188038]");
+        
+        // Hide after 3 seconds
+        toastTimeout = setTimeout(() => {
           x.classList.remove("show");
         }, 3000);
       }
