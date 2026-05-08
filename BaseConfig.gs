@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: BaseConfig.gs
-File Version: 3.05
+File Version: 3.06
 Chat link: [Insert Link]
 */
 
@@ -63,6 +63,10 @@ function createCustomMenu() {
     .addItem('Open Sidebar', 'showSidebar')
     .addSeparator()
     .addItem('Import Edit', 'promptForImport')
+    .addSeparator()
+    .addSubMenu(ui.createMenu("Data Extractions")
+      .addItem('Full Type Extraction', 'extractDataFromPDF')
+      .addItem('Type Extraction Import', 'showImportDialog'))
     .addToUi();
 }
 
