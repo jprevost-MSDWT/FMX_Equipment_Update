@@ -100,5 +100,6 @@ function getSelectedHeadersList(ss) {
  */
 function saveAndProcessHeaders(selectedHeaders) {
   saveSelectedHeaders(selectedHeaders);
+  SpreadsheetApp.flush();
   return processImportedData();
 }
