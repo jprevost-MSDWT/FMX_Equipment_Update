@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: DataManip.gs
-File Version: 3.02
+File Version: 3.04
 Chat link: [Insert Link]
 */
 
@@ -35,7 +35,8 @@ function processImportedData() {
     const sourceData = sourceSheet.getDataRange().getValues();
     if (sourceData.length < 1) throw new Error("Source sheet is empty.");
 
-    // 2. Identify Header Row in Source (Dynamic Search)
+    // 2. Identify Header Row in Source using the first required header,
+    //    which is the database identifier and will always be present.
     const requiredMarker = CONFIG.mapping.required[0];
     let headerRowIndex = -1;
     for (let i = 0; i < Math.min(CONFIG.mapping.headerSearchLimit, sourceData.length); i++) {
@@ -92,3 +93,16 @@ function getSelectedHeadersList(ss) {
     .filter(h => h !== "");
 }
 
+/**
+ * Sidebar wrapper: saves the selected headers, flushes pending writes to ensure
+ * spreadsheet state is synchronized, then re-syncs Equipment_Edit — all in one
+ * server round trip. Keeps saveSelectedHeaders() and processImportedData()
+ * independently callable for other contexts.
+ * @param {string[]} selectedHeaders - The full list of headers (required + user-selected) to save and apply.
+ * @return {string} Final status message from processImportedData.
+ */
+function saveAndProcessHeaders(selectedHeaders) {
+  saveSelectedHeaders(selectedHeaders);
+  SpreadsheetApp.flush();
+  return processImportedData();
+}
