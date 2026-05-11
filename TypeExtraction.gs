@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: TypeExtraction_Update.gs
-File Version: 2.14
+File Version: 2.15
 Chat link: [Insert Link]
 */
 
@@ -222,7 +222,7 @@ function processUploadedPDF(formObject) {
     flushRecord();
 
     if (extractedData.length > 0) {
-      const targetRange = ss.getRangeByName("Type_Import");
+      const targetRange = ss.getRangeByName(CONFIG.namedRanges.Type_Import);
       targetRange.clearContent();
       const sheet = targetRange.getCell(1,1).getSheet();
       sheet.getRange(targetRange.getRow(), targetRange.getColumn(), extractedData.length, 2).setValues(extractedData);
