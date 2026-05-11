@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: TypeExtraction_Update.gs
-File Version: 2.13
+File Version: 2.15
 Chat link: [Insert Link]
 */
 
@@ -80,15 +80,18 @@ function showImportDialog() {
   SpreadsheetApp.getUi().showModalDialog(html, 'Import File from Computer');
 }
 
+/**
+ * Processes an uploaded PDF by running OCR via the Drive API, extracting
+ * equipment type and module data, and writing results to the Type_Import named range.
+ * @param {string} formObject - A base64 DataURL string of the uploaded PDF file.
+ */
 function processUploadedPDF(formObject) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let tempDocId = null; 
   
   try {
     let fileBlob;
-    if (formObject && formObject.fileInput) {
-      fileBlob = Utilities.newBlob(formObject.fileInput.getBytes(), MimeType.PDF, "TempReport.pdf");
-    } else if (typeof formObject === 'string' && formObject.includes(',')) {
+    if (typeof formObject === 'string' && formObject.includes(',')) {
       const base64Data = formObject.split(',')[1];
       fileBlob = Utilities.newBlob(Utilities.base64Decode(base64Data), MimeType.PDF, "TempReport.pdf");
     } else {
@@ -97,7 +100,7 @@ function processUploadedPDF(formObject) {
     
     const timestamp = new Date().getTime();
     
-    // --- RESTORED: Drive API v2 / v3 Compatibility Block ---
+    // Drive API v2 / v3 Compatibility Block
     try {
       const resource = { title: "Temp OCR Doc - " + timestamp, mimeType: MimeType.GOOGLE_DOCS };
       const tempFile = Drive.Files.insert(resource, fileBlob, {ocr: true});
@@ -122,10 +125,10 @@ function processUploadedPDF(formObject) {
     rawText = rawText.replace(/--- PAGE \d+ ---/gi, '\n');
     rawText = rawText.replace(/Showing \d+[–-]\d+ of \d+ records/gi, '\n');
     rawText = rawText.replace(/Page \d+ of \d+/gi, '\n');
-    rawText = rawText.replace(/[\uE000-\uF8FF\u25A0-\u25FF\u200B-\u200D\uFEFF☑]/g, '\n');
-    rawText = rawText.replace(/["“”]/g, '');
+    rawText = rawText.replace(/[\uE000-\uF8FF\u25A0-\u25FF\u200B-\u200D\uFEFF☑]/g, '\n');
+    rawText = rawText.replace(/["""]/g, '');
 
-    // --- RESTORED: Un-glue Squashed Headers ---
+    // Un-glue Squashed Headers
     rawText = rawText.replace(/NamesModules/gi, '\n');
     rawText = rawText.replace(/Name Modules/gi, '\n');
     rawText = rawText.replace(/Name\s*(?=\*Testing Type)/gi, '\n');
@@ -147,9 +150,8 @@ function processUploadedPDF(formObject) {
             let n = currentName.replace(/^,+|,+$/g, '').replace(/\s+/g, ' ').trim();
             let m = currentModule.replace(/^,+|,+$/g, '').replace(/\s+/g, ' ').trim();
 
-            // --- RECOVERY LOGIC: Check if modules are stuck in the Name ---
+            // RECOVERY LOGIC: Check if modules are stuck in the Name
             for (let known of FMX_KNOWN_MODULES) {
-                // If name ends exactly with a known module
                 if (n.toLowerCase().endsWith(known.toLowerCase())) {
                     let cutIndex = n.toLowerCase().lastIndexOf(known.toLowerCase());
                     let moveText = n.substring(cutIndex).trim();
@@ -220,14 +222,14 @@ function processUploadedPDF(formObject) {
     flushRecord();
 
     if (extractedData.length > 0) {
-      const targetRange = ss.getRangeByName("Type_Import");
+      const targetRange = ss.getRangeByName(CONFIG.namedRanges.Type_Import);
       targetRange.clearContent();
       const sheet = targetRange.getCell(1,1).getSheet();
       sheet.getRange(targetRange.getRow(), targetRange.getColumn(), extractedData.length, 2).setValues(extractedData);
       ss.toast(`Extracted ${extractedData.length} records!`, "Success");
     }
   } finally {
-    // --- UPDATED: Robust temporary file cleanup ---
+    // Robust temporary file cleanup
     if (tempDocId) {
       try {
         DriveApp.getFileById(tempDocId).setTrashed(true);

@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: BaseConfig.gs
-File Version: 3.05
+File Version: 3.06
 Chat link: [Insert Link]
 */
 
@@ -16,20 +16,15 @@ const CONFIG = {
     data: "Data",
     edit: "Equipment_Edit"
   },
-  reportRanges: {
-    placeholderRange1: 7,  
-    Import_Headers: "Import_Headers"
-  },
   namedRanges: {
     Import_Headers: "Import_Headers",
     Import_Header_Exclude: "Import_Header_Exclude",
     Import_Headers_Selection: "Import_Headers_Selection",
     Selected_Headers: "Selected_Headers",
-    // New Named Ranges for Equipment Data
-    Equipment_types_Import: "Equipment_types_Import",
     Equipment_modules_Import: "Equipment_modules_Import",
     Equipment_types_Filtered: "Equipment_types_Filtered",
-    Default_Headers: "Default_Headers"
+    Default_Headers: "Default_Headers",
+    Type_Import: "Type_Import"
   },
   columnNames: {
     ItemID: ["ID*"],
@@ -38,8 +33,7 @@ const CONFIG = {
     Item_Building: ["Building*"],
   },
   mapping: {
-    headerSearchLimit: 20, // Extracted magic number for dynamic header search
-    // Headers that must ALWAYS be included in Selected_Headers
+    headerSearchLimit: 20,
     required: ["ID*", "Tag*", "Type*", "Building*"]
   }
 };
@@ -166,7 +160,7 @@ function getDefaultSelectedHeaders(ss = SpreadsheetApp.getActiveSpreadsheet()) {
 /**
  * Fetches available header options, excluding those that are required
  * or default-selected (as those are handled separately in UI).
- * @return {string[]} 
+ * @return {string[]}
  */
 function getImportHeaderOptions() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -176,14 +170,11 @@ function getImportHeaderOptions() {
   if (!range) return [];
   
   const required = CONFIG.mapping.required;
-  // Use the existing 'ss' object to prevent redundant API calls
   const defaultSel = getDefaultSelectedHeaders(ss);
   
-  // Trim the values before filtering to ensure robust string matching
   const values = range.getValues().flat()
     .map(h => h?.toString().trim() || "");
   
-  // Filter out empty values and values already handled by specific logic
   return values.filter(item => {
     return item !== "" && 
            item !== null && 
