@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.10
 Filename: Sidebar.html
-File Version: 3.21
+File Version: 3.22
 Chat link: [Insert Link]
 -->
 
@@ -38,6 +38,9 @@ Chat link: [Insert Link]
       <div id="MainActions" class="tabcontent py-3 block">
         <button class="w-full p-3 mt-2 bg-[#8ab4f8] text-black font-bold rounded text-left text-[0.9em] hover:bg-[#3367D6] hover:text-white transition-all shadow-sm active:scale-[0.98]" onclick="runImport()">
           Import Edit
+        </button>
+        <button class="w-full p-3 mt-2 bg-[#8ab4f8] text-black font-bold rounded text-left text-[0.9em] hover:bg-[#3367D6] hover:text-white transition-all shadow-sm active:scale-[0.98]" onclick="runPrepExport()">
+          Prep Export
         </button>
       </div>
 
@@ -116,6 +119,14 @@ Chat link: [Insert Link]
 
       function runImport() { 
         google.script.run.withFailureHandler(showError).promptForImport(); 
+      }
+
+      function runPrepExport() {
+        showToast("Running export prep...", false);
+        google.script.run
+          .withSuccessHandler(function() { showToast("Export prep complete!", false); })
+          .withFailureHandler(showError)
+          .runExportProcess();
       }
 
       /**
