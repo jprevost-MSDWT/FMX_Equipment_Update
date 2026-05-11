@@ -58,6 +58,8 @@ function createCustomMenu() {
     .addItem('Open Sidebar', 'showSidebar')
     .addSeparator()
     .addItem('Import Edit', 'promptForImport')
+    .addSeparator()
+    .addItem('Refresh Text menu', 'createTestMenu')
     .addToUi();
 }
 
