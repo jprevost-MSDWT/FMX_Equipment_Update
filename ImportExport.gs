@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: ImportExport.gs
-File Version: 3.03
+File Version: 3.04
 Chat link: [Insert Link]
 */
 
@@ -80,9 +80,6 @@ function importData(dataUrl, fileType, fileName) {
     let data = [];
 
     if (isExcel) {
-      /**
-       * Handles XLSX conversion using Drive API with robust error checking.
-       */
       let tempFileId = null;
       try {
         if (typeof Drive === 'undefined') {
@@ -106,7 +103,6 @@ function importData(dataUrl, fileType, fileName) {
         }
         throw new Error("XLSX Conversion Error: " + err.message);
       } finally {
-        // Robust cleanup using DriveApp, consistent with TypeExtraction.gs
         if (tempFileId) {
           try {
             DriveApp.getFileById(tempFileId).setTrashed(true);
@@ -179,7 +175,7 @@ function updateDataSheetHeaders(headers) {
   if (lastCol === 0) return; 
 
   const sheetHeaders = dataSheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  const targetHeaderName = CONFIG.reportRanges.Import_Headers;
+  const targetHeaderName = CONFIG.namedRanges.Import_Headers;
   
   const colIndex = sheetHeaders.indexOf(targetHeaderName);
 
