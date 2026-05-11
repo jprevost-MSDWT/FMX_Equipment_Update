@@ -46,6 +46,7 @@ function OnOpen_Triggered(e) {
   VerifySheets();
   SetupNamedRanges();
   showSidebar();
+  createTestMenu();
 }
 
 /**
