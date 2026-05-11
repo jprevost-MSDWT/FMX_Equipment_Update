@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: IMPORTdialog.html
-File Version: 3.00
+File Version: 3.01
 Chat link: [Insert Link]
 -->
 
@@ -60,7 +60,7 @@ Chat link: [Insert Link]
 <body>
 
   <div id="dropZone">
-    <span>Drag & Drop a CSV/TXT/XLSX file here<br>or click to select</span>
+    <span id="dropZoneText">Drag & Drop a CSV/TXT/XLSX file here<br>or click to select</span>
   </div>
   <input type="file" id="fileInput" accept=".csv,.txt,.tsv,.xlsx,.xls">
 
@@ -77,6 +77,7 @@ Chat link: [Insert Link]
 
   <script>
     const dropZone = document.getElementById('dropZone');
+    const dropZoneText = document.getElementById('dropZoneText');
     const fileInput = document.getElementById('fileInput');
     const importBtn = document.getElementById('importBtn');
     const toast = document.getElementById('toast');
@@ -111,11 +112,13 @@ Chat link: [Insert Link]
 
     /**
      * Updates the UI when a file is selected.
+     * Uses textContent to avoid XSS risks from filenames.
      */
     function handleFile(file) {
       if (file) {
         selectedFile = file;
-        dropZone.querySelector('span').textContent = `File selected: ${file.name}`;
+        // Safety: Use textContent to prevent XSS from malicious filenames
+        dropZoneText.textContent = "File selected: " + file.name;
         importBtn.disabled = false;
       }
     }
@@ -128,7 +131,6 @@ Chat link: [Insert Link]
       toast.classList.remove('hidden', 'bg-red-500', 'bg-green-600');
       toast.classList.add(isError ? 'bg-red-500' : 'bg-green-600');
       
-      // If it's an error, hide it after 5 seconds. Success stays until close.
       if (isError) {
         setTimeout(() => {
           toast.classList.add('hidden');
@@ -143,7 +145,6 @@ Chat link: [Insert Link]
       showToast(status, false);
       importBtn.textContent = 'Success!';
       
-      // Auto-close dialog after 1.5 seconds
       setTimeout(() => {
         google.script.host.close();
       }, 1500);
@@ -166,7 +167,6 @@ Chat link: [Insert Link]
 
       const reader = new FileReader();
       
-      // For Excel and large CSVs, we read as DataURL (Base64) to pass to GS
       reader.onload = (e) => {
         const fileContent = e.target.result;
         const fileType = selectedFile.type;
