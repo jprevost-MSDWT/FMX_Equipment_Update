@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: ImportExport.gs
-File Version: 3.02
+File Version: 3.03
 Chat link: [Insert Link]
 */
 
@@ -83,6 +83,7 @@ function importData(dataUrl, fileType, fileName) {
       /**
        * Handles XLSX conversion using Drive API with robust error checking.
        */
+      let tempFileId = null;
       try {
         if (typeof Drive === 'undefined') {
           throw new Error("Drive API Service not detected.");
@@ -95,24 +96,24 @@ function importData(dataUrl, fileType, fileName) {
         };
         
         let tempFile = Drive.Files.insert ? Drive.Files.insert(resource, blob) : Drive.Files.create(resource, blob);
-        const tempSs = SpreadsheetApp.openById(tempFile.id);
+        tempFileId = tempFile.id;
+        const tempSs = SpreadsheetApp.openById(tempFileId);
         data = tempSs.getSheets()[0].getDataRange().getValues();
-        
-        try {
-          if (Drive.Files.remove) {
-            Drive.Files.remove(tempFile.id);
-          } else if (Drive.Files.delete) {
-             Drive.Files.delete(tempFile.id);
-          }
-        } catch (cleanupError) {
-          console.warn("Temporary file cleanup failed: " + cleanupError.message);
-        }
 
       } catch (err) {
         if (err.message.includes("Drive API Service not detected") || err instanceof ReferenceError || err.message.includes("Drive is not defined")) {
           throw new Error("Advanced Drive Service is not enabled. Please go to 'Services' (+), find 'Drive API', and add it to the project.");
         }
         throw new Error("XLSX Conversion Error: " + err.message);
+      } finally {
+        // Robust cleanup using DriveApp, consistent with TypeExtraction.gs
+        if (tempFileId) {
+          try {
+            DriveApp.getFileById(tempFileId).setTrashed(true);
+          } catch (cleanupError) {
+            console.warn("Temporary file cleanup failed: " + tempFileId);
+          }
+        }
       }
 
     } else {
@@ -197,11 +198,4 @@ function updateDataSheetHeaders(headers) {
     const outputValues = headers.map(h => [h]);
     dataSheet.getRange(2, colNumber, outputValues.length, 1).setValues(outputValues);
   }
-}
-
-/**
- * Placeholder for export logic.
- */
-function handleExport() {
-  // Logic for future export features
 }
