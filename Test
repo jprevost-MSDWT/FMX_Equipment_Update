@@ -1,1 +1,20 @@
+/*
+Project Name: FMX Equipment Import non-Gem
+Project Version: 4.00
+Filename: Test.gs
+File Version: 1.00
+Chat link: [Insert Link]
+*/
 
+
+
+
+function createTestMenu() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu("Test menu")
+    .addItem('Open Sidebar', 'showSidebar')
+    .addSeparator()
+    .addItem('Import Edit', 'promptForImport')
+    .addToUi();
+
+}
