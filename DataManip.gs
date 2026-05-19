@@ -145,13 +145,14 @@ function runExportProcess() {
   const editData = editSheet.getDataRange().getValues();
   if (editData.length <= CONFIG.rows.editHeaderIndex) return; // No data rows below the header
 
-  const sourceHeaders = editData[CONFIG.rows.editHeaderIndex - 1];
+  const sourceHeaders = editData[CONFIG.rows.editHeaderIndex - 1].map(h => h ? h.toString().trim() : "");
   const sourceRecords = editData.slice(CONFIG.rows.editHeaderIndex);
 
   // Map columns: Target Column Index -> Source Column Index
   const columnMap = targetHeaders.map(header => {
-    if (!header || header.toString().trim() === "") return -1;
-    return sourceHeaders.indexOf(header);
+    const cleanHeader = header ? header.toString().trim() : "";
+    if (cleanHeader === "") return -1;
+    return sourceHeaders.indexOf(cleanHeader);
   });
 
   // Build output 2D array by mapping source records to the target column order
