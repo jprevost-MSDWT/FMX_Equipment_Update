@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: BaseConfig.gs
-File Version: 3.06
+File Version: 3.08
 Chat link: [Insert Link]
 */
 
@@ -14,7 +14,8 @@ const CONFIG = {
   sheets: {
     import: "RAWImport",    // Do NOT change. Also used in HTML
     data: "Data",
-    edit: "Equipment_Edit"
+    edit: "Equipment_Edit",
+    export: "Edit_Export"
   },
   namedRanges: {
     Import_Headers: "Import_Headers",
@@ -35,6 +36,11 @@ const CONFIG = {
   mapping: {
     headerSearchLimit: 20,
     required: ["ID*", "Tag*", "Type*", "Building*"]
+  },
+  rows: {
+    importHeaderCount: 3,   // Number of header rows to copy from RAWImport to Edit_Export
+    exportHeaderIndex: 3,   // Which of those rows contains the headers to match (1-indexed)
+    editHeaderIndex: 1      // Which row in Equipment_Edit contains headers (1-indexed)
   }
 };
 
@@ -58,8 +64,9 @@ function createCustomMenu() {
     .addItem('Open Sidebar', 'showSidebar')
     .addSeparator()
     .addItem('Import Edit', 'promptForImport')
+    .addItem('Prep Export', 'runExportProcess')
     .addSeparator()
-    .addItem('Refresh Text menu', 'createTestMenu')
+    .addItem('Refresh Test menu', 'createTestMenu')
     .addToUi();
 }
 
