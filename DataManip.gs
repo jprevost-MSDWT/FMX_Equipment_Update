@@ -129,9 +129,13 @@ function runExportProcess() {
 
   // 2) Copy the first N header rows from RAWImport to Edit_Export
   const importLastCol = importSheet.getLastColumn();
-  if (importLastCol > 0) {
+  const importLastRow = importSheet.getLastRow();
+
+  if (importLastCol > 0 && importLastRow >= CONFIG.rows.importHeaderCount) {
     const topRowsRange = importSheet.getRange(1, 1, CONFIG.rows.importHeaderCount, importLastCol);
     topRowsRange.copyTo(exportSheet.getRange(1, 1));
+  } else if (importLastCol > 0) {
+    throw new Error("The source sheet " + CONFIG.sheets.import + " does not have the required " + CONFIG.rows.importHeaderCount + " header rows.");
   }
 
   // 3) Pull values from Equipment_Edit and transfer to Edit_Export, matching headers
