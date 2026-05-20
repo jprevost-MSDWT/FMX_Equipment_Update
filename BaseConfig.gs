@@ -15,7 +15,7 @@ const CONFIG = {
     import: "RAWImport",    // Do NOT change. Also used in HTML
     data: "Data",
     edit: "Equipment_Edit",
-    export: "Equipment Items"  //Must match bulk sheet from FMX/*
+    export: "Equipment Items"  //Must match bulk sheet from FMX/
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: BaseConfig.gs
