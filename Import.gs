@@ -1,7 +1,7 @@
 /*
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
-Filename: ImportExport.gs
+Filename: Import.gs
 File Version: 3.04
 Chat link: [Insert Link]
 */
