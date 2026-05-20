@@ -15,7 +15,7 @@ const CONFIG = {
     import: "RAWImport",    // Do NOT change. Also used in HTML
     data: "Data",
     edit: "Equipment_Edit",
-    export: "Equipment Items"
+    export: "Equipment Items"  //Must match bulk sheet from FMX
   },
   namedRanges: {
     Import_Headers: "Import_Headers",
