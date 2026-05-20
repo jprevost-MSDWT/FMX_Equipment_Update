@@ -6,6 +6,7 @@ File Version: 3.09
 Chat link: [Insert Link]
 */
 
+
 /**
  * Configuration object for the project.
  * Centralizes all static strings and settings.
@@ -15,7 +16,7 @@ const CONFIG = {
     import: "RAWImport",    // Do NOT change. Also used in HTML
     data: "Data",
     edit: "Equipment_Edit",
-    export: "Equipment Items"  //Must match bulk sheet from FMX
+    export: "Equipment Items"  //Do NOT change. Must match bulk sheet from FMX
   },
   namedRanges: {
     Import_Headers: "Import_Headers",
@@ -38,7 +39,7 @@ const CONFIG = {
     required: ["ID*", "Tag*", "Type*", "Building*"]
   },
   rows: {
-    importHeaderCount: 3,   // Number of header rows to copy from RAWImport to Edit_Export
+    importHeaderCount: 3,   // Number of header rows to copy from RAWImport to export sheet
     exportHeaderIndex: 3,   // Which of those rows contains the headers to match (1-indexed)
     editHeaderIndex: 1      // Which row in Equipment_Edit contains headers (1-indexed)
   }
@@ -52,19 +53,7 @@ function OnOpen_Triggered(e) {
   VerifySheets();
   SetupNamedRanges();
   showSidebar();
-  
-  // Safely check if the function exists
-  if (typeof createTestMenu === 'function') {
-    createTestMenux(); 
-  } else {
-    // Fire a toast message if the function is missing
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (ss) {
-      ss.toast(
-        "The createTestMenu() function is not present in this project. Skipping."
-      );
-    }
-  }
+  createTestMenu();  //Used for testing
 }
 
 /**
@@ -78,9 +67,21 @@ function createCustomMenu() {
     .addItem('Import Edit', 'promptForImport')
     .addItem('Prep Export', 'runExportProcess')
     .addSeparator()
-    .addItem('Refresh Test menu', 'createTestMenu')
+    .addItem('Refresh Test menu', 'createTestMenu')  //Used for testing
     .addToUi();
 }
+
+function createTestMenu() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu("TestMenu")
+    .addItem('Prep Export', 'runExportProcess')
+    .addItem('showDownloadDialog', 'showDownloadDialog')
+    //.addItem('getExportData', 'getExportData')
+    .addToUi();
+}
+
+
+
 
 /**
  * Opens the HTML Sidebar.
@@ -126,7 +127,7 @@ function SetupNamedRanges() {
     const colIndex = headers.indexOf(headerName);
     if (colIndex !== -1) {
       const colLetter = colIndex + 1;
-      const numRows = sheet.getMaxRows() - 1;
+      const numRows = sheet.getLastRow() - 1;
       if (numRows > 0) {
         const range = sheet.getRange(2, colLetter, numRows, 1);
         ss.setNamedRange(rangeName, range);
@@ -222,10 +223,10 @@ function saveSelectedHeaders(selectedHeaders) {
   if (colIndex === -1) throw new Error(`Column "${headerName}" not found.`);
   
   const colNumber = colIndex + 1;
-  const maxRows = sheet.getMaxRows();
+  const lastRow = sheet.getLastRow();
 
-  if (maxRows > 1) {
-    sheet.getRange(2, colNumber, maxRows - 1, 1).clearContent();
+  if (lastRow > 1) {
+    sheet.getRange(2, colNumber, lastRow - 1, 1).clearContent();
   }
 
   if (selectedHeaders && selectedHeaders.length > 0) {
@@ -233,3 +234,4 @@ function saveSelectedHeaders(selectedHeaders) {
     sheet.getRange(2, colNumber, output.length, 1).setValues(output);
   }
 }
+// EOF: BaseConfig.gs
