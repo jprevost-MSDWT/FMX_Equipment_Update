@@ -127,7 +127,7 @@ function importData(dataUrl, fileType, fileName) {
 
     // 4. Extract Headers (Dynamic Search)
     let headerRowIndex = -1;
-    const searchLimit = Math.min(10, data.length);
+    const searchLimit = Math.min(CONFIG.mapping.headerSearchLimit, data.length);
     const requiredHeader = CONFIG.mapping.required[0] || "ID*"; 
 
     for (let i = 0; i < searchLimit; i++) {
