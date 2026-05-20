@@ -6,22 +6,6 @@ File Version: 3.09
 Chat link: [Insert Link]
 */
 
-/**
- * Configuration object for the project.
- * Centralizes all static strings and settings.
- */
-const CONFIG = {
-  sheets: {
-    import: "RAWImport",    // Do NOT change. Also used in HTML
-    data: "Data",
-    edit: "Equipment_Edit",
-    export: "Equipment Items"  //Must match bulk sheet from FMX/
-Project Name: FMX Equipment Import non-Gem
-Project Version: 4.00
-Filename: BaseConfig.gs
-File Version: 3.10
-Chat link: [Insert Link]
-*/
 
 /**
  * Configuration object for the project.
