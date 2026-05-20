@@ -71,6 +71,7 @@ function createCustomMenu() {
     .addToUi();
 }
 
+/**  Example test menu, real one in test file.
 function createTestMenu() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu("TestMenu")
@@ -79,7 +80,7 @@ function createTestMenu() {
     //.addItem('getExportData', 'getExportData')
     .addToUi();
 }
-
+*/
 
 
 
