@@ -124,10 +124,10 @@ function runExportProcess() {
     throw new Error("One or more required sheets are missing. Please verify sheet names.");
   }
 
-  // 1) Clear all data & formatting from Edit_Export
+  // 1) Clear all data & formatting from export sheet
   exportSheet.clear();
 
-  // 2) Copy the first N header rows from RAWImport to Edit_Export
+  // 2) Copy the first N header rows from RAWImport to export sheet
   const importLastCol = importSheet.getLastColumn();
   const importLastRow = importSheet.getLastRow();
 
@@ -138,11 +138,11 @@ function runExportProcess() {
     throw new Error("The source sheet " + CONFIG.sheets.import + " does not have the required " + CONFIG.rows.importHeaderCount + " header rows.");
   }
 
-  // 3) Pull values from Equipment_Edit and transfer to Edit_Export, matching headers
+  // 3) Pull values from Equipment_Edit and transfer to export sheet, matching headers
   const exportLastCol = exportSheet.getLastColumn();
   if (exportLastCol === 0) return; // No headers to match against
 
-  // Get target headers from the designated header row in Edit_Export
+  // Get target headers from the designated header row in export sheet
   const targetHeaders = exportSheet.getRange(CONFIG.rows.exportHeaderIndex, 1, 1, exportLastCol).getValues()[0];
 
   // Get all data from Equipment_Edit for batch processing
