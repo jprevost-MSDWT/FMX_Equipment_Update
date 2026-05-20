@@ -127,7 +127,7 @@ function SetupNamedRanges() {
     const colIndex = headers.indexOf(headerName);
     if (colIndex !== -1) {
       const colLetter = colIndex + 1;
-      const numRows = sheet.getMaxRows() - 1;
+      const numRows = sheet.getLastRow() - 1;
       if (numRows > 0) {
         const range = sheet.getRange(2, colLetter, numRows, 1);
         ss.setNamedRange(rangeName, range);
