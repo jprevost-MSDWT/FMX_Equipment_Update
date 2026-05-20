@@ -52,7 +52,19 @@ function OnOpen_Triggered(e) {
   VerifySheets();
   SetupNamedRanges();
   showSidebar();
-  createTestMenu();
+  
+  // Safely check if the function exists
+  if (typeof createTestMenu === 'function') {
+    createTestMenux(); 
+  } else {
+    // Fire a toast message if the function is missing
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss) {
+      ss.toast(
+        "The createTestMenu() function is not present in this project. Skipping."
+      );
+    }
+  }
 }
 
 /**
