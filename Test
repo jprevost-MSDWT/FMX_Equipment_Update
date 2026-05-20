@@ -2,7 +2,7 @@
 Project Name: Tab Exporter
 Project Version: 1.12
 Filename: Test.gs
-File Version: 1.13
+File Version: 1.15
 Chat link: 
 */
 
@@ -101,18 +101,33 @@ function getExportData() {
     tempSs.deleteSheet(initialSheet);
     
     SpreadsheetApp.flush(); // Commit changes before fetching
-    Utilities.sleep(3000); // Pause for 3 seconds to let Google's export servers sync the new tabs
-    
-    // Fetch the entire temporary spreadsheet as XLSX
+
+    // Initial wait to allow Google's export servers to sync the new tabs.
+    // 3 seconds covers most cases; the retry loop below handles slow days.
+    Utilities.sleep(3000);
+
+    // Retry loop: attempt up to 3 times with a 2-second delay between attempts.
     const url = `https://docs.google.com/spreadsheets/d/${tempSsId}/export?format=xlsx`;
-    
-    const response = UrlFetchApp.fetch(url, {
+    const fetchOptions = {
       headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
       muteHttpExceptions: true
-    });
-    
+    };
+
+    let response;
+    const maxAttempts = 3;
+    const retryDelay = 2000;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      response = UrlFetchApp.fetch(url, fetchOptions);
+      if (response.getResponseCode() === 200) break;
+      if (attempt < maxAttempts) {
+        console.warn(`Export attempt ${attempt} failed (code: ${response.getResponseCode()}). Retrying...`);
+        Utilities.sleep(retryDelay);
+      }
+    }
+
     if (response.getResponseCode() !== 200) {
-      throw new Error('Failed to fetch the export from Google servers. Code: ' + response.getResponseCode());
+      throw new Error('Failed to fetch the export from Google servers after ' + maxAttempts + ' attempts. Code: ' + response.getResponseCode());
     }
     
     const blob = response.getBlob();
@@ -122,5 +137,6 @@ function getExportData() {
     // Always clean up the temporary file, even if an error occurs
     DriveApp.getFileById(tempSsId).setTrashed(true);
   }
-  // EOF: Test.gs
 }
+
+// EOF: Test.gs
