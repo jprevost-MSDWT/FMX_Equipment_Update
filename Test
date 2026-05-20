@@ -1,7 +1,7 @@
 /*
 Project Name: Tab Exporter
 Project Version: 1.12
-Filename: Code.gs
+Filename: Test.gs
 File Version: 1.12
 Chat link: 
 */
@@ -121,5 +121,6 @@ function getExportData() {
     // Always clean up the temporary file, even if an error occurs
     DriveApp.getFileById(tempSsId).setTrashed(true);
   }
+//EOF: Test.gs
 }
 // EOF: Code.gs
