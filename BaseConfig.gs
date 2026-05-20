@@ -223,10 +223,10 @@ function saveSelectedHeaders(selectedHeaders) {
   if (colIndex === -1) throw new Error(`Column "${headerName}" not found.`);
   
   const colNumber = colIndex + 1;
-  const maxRows = sheet.getMaxRows();
+  const lastRow = sheet.getLastRow();
 
-  if (maxRows > 1) {
-    sheet.getRange(2, colNumber, maxRows - 1, 1).clearContent();
+  if (lastRow > 1) {
+    sheet.getRange(2, colNumber, lastRow - 1, 1).clearContent();
   }
 
   if (selectedHeaders && selectedHeaders.length > 0) {
