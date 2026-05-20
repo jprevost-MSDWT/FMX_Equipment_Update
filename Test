@@ -1,20 +1,125 @@
 /*
-Project Name: FMX Equipment Import non-Gem
-Project Version: 4.00
-Filename: Test.gs
-File Version: 1.00
-Chat link: [Insert Link]
+Project Name: Tab Exporter
+Project Version: 1.12
+Filename: Code.gs
+File Version: 1.12
+Chat link: 
 */
 
+const CONFIG_Test = {
+  EXPORT_FILE_NAME: 'Equipment Edit - google export.xlsx',
+  EXPORT_TABS: ['Equipment Items', 'Meters']
+};
 
+/**
+ * Displays a modal dialog to initiate the file download.
+ * Fetches data via asynchronous client-side call to prevent UI freezing.
+ * @return {void}
+ */
+function showDownloadDialog() {
+  const htmlString = `
+    <script>
+      // Triggered when base64 data is successfully returned from the server
+      function triggerDownload(base64Data) {
+        try {
+          const link = document.createElement('a');
+          link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + base64Data;
+          link.download = '${CONFIG_Test.EXPORT_FILE_NAME}';
+          document.body.appendChild(link);
+          link.click();
+          
+          document.getElementById('status').innerText = 'Download initiated. Closing...';
+          
+          // Auto-close the dialog after a brief delay
+          setTimeout(function() {
+            google.script.host.close();
+          }, 1500);
+        } catch(e) {
+          handleError(e);
+        }
+      }
 
+      function handleError(error) {
+        document.getElementById('status').innerText = 'Error: ' + error.message;
+        document.getElementById('status').style.color = 'red';
+      }
 
-function createTestMenu() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu("Test menu")
-    .addItem('Open Sidebar', 'showSidebar')
-    .addSeparator()
-    .addItem('Import Edit', 'promptForImport')
-    .addToUi();
+      // Fetch the data asynchronously as soon as the dialog loads
+      window.onload = function() {
+        google.script.run
+          .withSuccessHandler(triggerDownload)
+          .withFailureHandler(handleError)
+          .getExportData();
+      };
+    </script>
+    <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
+      <p id="status" style="color: #333; font-size: 16px; margin-bottom: 10px;">Gathering data, please wait...</p>
+    </div>
+  `;
 
+  const html = HtmlService.createHtmlOutput(htmlString)
+      .setWidth(300)
+      .setHeight(150);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Downloading Report...');
 }
+
+/**
+ * Fetches the exported XLSX data as a Base64 string.
+ * Uses a temporary file to combine specific tabs into one export.
+ * @return {string} Base64 encoded XLSX data.
+ */
+function getExportData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tabNames = CONFIG_Test.EXPORT_TABS;
+  const sheetsToExport = [];
+  
+  // Verify all required tabs exist
+  for (const name of tabNames) {
+    const sheet = ss.getSheetByName(name);
+    if (!sheet) {
+      throw new Error('Sheet "' + name + '" not found. Please ensure the tab exists.');
+    }
+    sheetsToExport.push(sheet);
+  }
+  
+  // Create a temporary spreadsheet to hold just the specific tabs
+  const tempSs = SpreadsheetApp.create('TempExport_' + Utilities.getUuid());
+  const tempSsId = tempSs.getId();
+  
+  try {
+    // Copy the specific tabs into the temporary spreadsheet
+    for (const sheet of sheetsToExport) {
+      const copiedSheet = sheet.copyTo(tempSs).setName(sheet.getName());
+      copiedSheet.showSheet(); // Ensure the tab is not hidden in the final export
+    }
+    
+    // Remove the default empty "Sheet1"
+    const defaultSheet = tempSs.getSheetByName('Sheet1');
+    if (defaultSheet) {
+      tempSs.deleteSheet(defaultSheet);
+    }
+    
+    SpreadsheetApp.flush(); // Commit changes before fetching
+    Utilities.sleep(3000); // Pause for 3 seconds to let Google's export servers sync the new tabs
+    
+    // Fetch the entire temporary spreadsheet as XLSX
+    const url = `https://docs.google.com/spreadsheets/d/${tempSsId}/export?format=xlsx`;
+    
+    const response = UrlFetchApp.fetch(url, {
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+    
+    if (response.getResponseCode() !== 200) {
+      throw new Error('Failed to fetch the export from Google servers. Code: ' + response.getResponseCode());
+    }
+    
+    const blob = response.getBlob();
+    return Utilities.base64Encode(blob.getBytes());
+    
+  } finally {
+    // Always clean up the temporary file, even if an error occurs
+    DriveApp.getFileById(tempSsId).setTrashed(true);
+  }
+}
+// EOF: Code.gs
