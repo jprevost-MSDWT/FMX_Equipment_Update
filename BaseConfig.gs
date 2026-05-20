@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: BaseConfig.gs
-File Version: 3.09
+File Version: 3.10
 Chat link: [Insert Link]
 */
 
@@ -15,7 +15,7 @@ const CONFIG = {
     import: "RAWImport",    // Do NOT change. Also used in HTML
     data: "Data",
     edit: "Equipment_Edit",
-    export: "Equipment Items"  //Must match bulk sheet from FMX
+    export: "Equipment Items"  //Do NOT change. Must match bulk sheet from FMX
   },
   namedRanges: {
     Import_Headers: "Import_Headers",
@@ -38,7 +38,7 @@ const CONFIG = {
     required: ["ID*", "Tag*", "Type*", "Building*"]
   },
   rows: {
-    importHeaderCount: 3,   // Number of header rows to copy from RAWImport to Edit_Export
+    importHeaderCount: 3,   // Number of header rows to copy from RAWImport to export sheet
     exportHeaderIndex: 3,   // Which of those rows contains the headers to match (1-indexed)
     editHeaderIndex: 1      // Which row in Equipment_Edit contains headers (1-indexed)
   }
@@ -52,7 +52,7 @@ function OnOpen_Triggered(e) {
   VerifySheets();
   SetupNamedRanges();
   showSidebar();
-  createTestMenu();
+  createTestMenu();  //Used for testing
 }
 
 /**
@@ -66,9 +66,21 @@ function createCustomMenu() {
     .addItem('Import Edit', 'promptForImport')
     .addItem('Prep Export', 'runExportProcess')
     .addSeparator()
-    .addItem('Refresh Test menu', 'createTestMenu')
+    .addItem('Refresh Test menu', 'createTestMenu')  //Used for testing
     .addToUi();
 }
+
+function createTestMenu() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu("TestMenu")
+    .addItem('Prep Export', 'runExportProcess')
+    .addItem('showDownloadDialog', 'showDownloadDialog')
+    //.addItem('getExportData', 'getExportData')
+    .addToUi();
+}
+
+
+
 
 /**
  * Opens the HTML Sidebar.
@@ -221,3 +233,4 @@ function saveSelectedHeaders(selectedHeaders) {
     sheet.getRange(2, colNumber, output.length, 1).setValues(output);
   }
 }
+// EOF: BaseConfig.gs
