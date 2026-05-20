@@ -2,7 +2,7 @@
 Project Name: Tab Exporter
 Project Version: 1.12
 Filename: Test.gs
-File Version: 1.12
+File Version: 1.13
 Chat link: 
 */
 
@@ -87,17 +87,18 @@ function getExportData() {
   const tempSsId = tempSs.getId();
   
   try {
+    // Rename the default sheet to avoid name conflicts if any exported tab is named "Sheet1"
+    const initialSheet = tempSs.getSheets()[0];
+    initialSheet.setName('TEMP_DEFAULT');
+
     // Copy the specific tabs into the temporary spreadsheet
     for (const sheet of sheetsToExport) {
       const copiedSheet = sheet.copyTo(tempSs).setName(sheet.getName());
       copiedSheet.showSheet(); // Ensure the tab is not hidden in the final export
     }
     
-    // Remove the default empty "Sheet1"
-    const defaultSheet = tempSs.getSheetByName('Sheet1');
-    if (defaultSheet) {
-      tempSs.deleteSheet(defaultSheet);
-    }
+    // Remove the default placeholder sheet now that all tabs have been copied
+    tempSs.deleteSheet(initialSheet);
     
     SpreadsheetApp.flush(); // Commit changes before fetching
     Utilities.sleep(3000); // Pause for 3 seconds to let Google's export servers sync the new tabs
@@ -121,6 +122,5 @@ function getExportData() {
     // Always clean up the temporary file, even if an error occurs
     DriveApp.getFileById(tempSsId).setTrashed(true);
   }
-//EOF: Test.gs
+  // EOF: Test.gs
 }
-// EOF: Code.gs
