@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: BaseConfig.gs
-File Version: 3.08
+File Version: 3.09
 Chat link: [Insert Link]
 */
 
@@ -15,7 +15,7 @@ const CONFIG = {
     import: "RAWImport",    // Do NOT change. Also used in HTML
     data: "Data",
     edit: "Equipment_Edit",
-    export: "Edit_Export"
+    export: "Equipment Items"
   },
   namedRanges: {
     Import_Headers: "Import_Headers",
