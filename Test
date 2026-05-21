@@ -123,8 +123,8 @@ function getExportData() {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         response = UrlFetchApp.fetch(url, fetchOptions);
+        lastError = null; // Clear any previous network error as the fetch call succeeded
         if (response.getResponseCode() === 200) break;
-        lastError = null; // Clear any previous network error on a successful HTTP response
         if (attempt < maxAttempts) {
           console.warn(`Export attempt ${attempt} failed (code: ${response.getResponseCode()}). Retrying...`);
           Utilities.sleep(retryDelay);
