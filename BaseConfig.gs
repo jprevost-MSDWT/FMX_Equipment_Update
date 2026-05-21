@@ -2,10 +2,9 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: BaseConfig.gs
-File Version: 3.09
+File Version: 3.10
 Chat link: [Insert Link]
 */
-
 
 /**
  * Configuration object for the project.
@@ -81,8 +80,6 @@ function createTestMenu() {
     .addToUi();
 }
 */
-
-
 
 /**
  * Opens the HTML Sidebar.

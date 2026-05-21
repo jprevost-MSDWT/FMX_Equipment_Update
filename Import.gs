@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: Import.gs
-File Version: 3.04
+File Version: 3.05
 Chat link: [Insert Link]
 */
 
@@ -118,7 +118,7 @@ function importData(dataUrl, fileType, fileName) {
     }
 
     if (!data || data.length === 0) {
-      return "Error: No data found in file.";
+      throw new Error("No data found in file.");
     }
 
     // 3. Write Data to Sheet
@@ -138,7 +138,7 @@ function importData(dataUrl, fileType, fileName) {
     }
 
     if (headerRowIndex === -1) {
-      return `Error: Could not find required header '${requiredHeader}' in the first ${searchLimit} rows of the file.`;
+      throw new Error(`Could not find required header '${requiredHeader}' in the first ${searchLimit} rows of the file.`);
     }
 
     const headerRow = data[headerRowIndex]; 
@@ -195,3 +195,5 @@ function updateDataSheetHeaders(headers) {
     dataSheet.getRange(2, colNumber, outputValues.length, 1).setValues(outputValues);
   }
 }
+
+// EOF: Import.gs
