@@ -116,7 +116,7 @@ function getExportData() {
     };
 
     let response;
-    let lastError;
+    let lastError = null;
     const maxAttempts = 3;
     const retryDelay = 2000;
 
@@ -130,7 +130,6 @@ function getExportData() {
           Utilities.sleep(retryDelay);
         }
       } catch (networkError) {
-        // Catches network-level failures that muteHttpExceptions does not suppress
         lastError = networkError;
         if (attempt < maxAttempts) {
           console.warn(`Export attempt ${attempt} threw a network error: ${networkError.message}. Retrying...`);
@@ -139,16 +138,21 @@ function getExportData() {
       }
     }
 
-    // If the last attempt was a network-level throw, re-throw it now
     if (lastError) {
       throw new Error(`Export failed after ${maxAttempts} attempts due to a network error: ${lastError.message}`);
     }
 
     if (response.getResponseCode() !== 200) {
+      let responseSnippet = '';
+      try {
+        responseSnippet = response.getContentText().substring(0, 500);
+      } catch (e) {
+        responseSnippet = '[response body could not be decoded]';
+      }
       throw new Error(
         `Failed to fetch the export from Google servers after ${maxAttempts} attempts. ` +
         `Code: ${response.getResponseCode()}. ` +
-        `Response: ${response.getContentText().substring(0, 500)}`
+        `Response: ${responseSnippet}`
       );
     }
     
