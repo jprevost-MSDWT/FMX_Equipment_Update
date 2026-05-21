@@ -2,7 +2,7 @@
 Project Name: Tab Exporter
 Project Version: 1.12
 Filename: Test.gs
-File Version: 1.15
+File Version: 1.16
 Chat link: 
 */
 
@@ -107,6 +107,8 @@ function getExportData() {
     Utilities.sleep(3000);
 
     // Retry loop: attempt up to 3 times with a 2-second delay between attempts.
+    // The try/catch inside the loop ensures network-level exceptions (e.g. timeouts,
+    // DNS failures, GAS quota errors) also trigger a retry, not just HTTP error codes.
     const url = `https://docs.google.com/spreadsheets/d/${tempSsId}/export?format=xlsx`;
     const fetchOptions = {
       headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
@@ -114,20 +116,40 @@ function getExportData() {
     };
 
     let response;
+    let lastError;
     const maxAttempts = 3;
     const retryDelay = 2000;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      response = UrlFetchApp.fetch(url, fetchOptions);
-      if (response.getResponseCode() === 200) break;
-      if (attempt < maxAttempts) {
-        console.warn(`Export attempt ${attempt} failed (code: ${response.getResponseCode()}). Retrying...`);
-        Utilities.sleep(retryDelay);
+      try {
+        response = UrlFetchApp.fetch(url, fetchOptions);
+        lastError = null; // Clear any previous network error as the fetch call succeeded
+        if (response.getResponseCode() === 200) break;
+        if (attempt < maxAttempts) {
+          console.warn(`Export attempt ${attempt} failed (code: ${response.getResponseCode()}). Retrying...`);
+          Utilities.sleep(retryDelay);
+        }
+      } catch (networkError) {
+        // Catches network-level failures that muteHttpExceptions does not suppress
+        lastError = networkError;
+        if (attempt < maxAttempts) {
+          console.warn(`Export attempt ${attempt} threw a network error: ${networkError.message}. Retrying...`);
+          Utilities.sleep(retryDelay);
+        }
       }
     }
 
+    // If the last attempt was a network-level throw, re-throw it now
+    if (lastError) {
+      throw new Error(`Export failed after ${maxAttempts} attempts due to a network error: ${lastError.message}`);
+    }
+
     if (response.getResponseCode() !== 200) {
-      throw new Error('Failed to fetch the export from Google servers after ' + maxAttempts + ' attempts. Code: ' + response.getResponseCode());
+      throw new Error(
+        `Failed to fetch the export from Google servers after ${maxAttempts} attempts. ` +
+        `Code: ${response.getResponseCode()}. ` +
+        `Response: ${response.getContentText().substring(0, 500)}`
+      );
     }
     
     const blob = response.getBlob();
