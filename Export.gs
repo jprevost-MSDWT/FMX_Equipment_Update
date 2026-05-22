@@ -6,12 +6,7 @@ File Version: 2.10
 Chat link: [Insert Link]
 */
 
-const CONFIG = {
-  Exporting: {
-    EXPORT_FILE_NAME: 'Equipment Edit - google export.xlsx',
-    EXPORT_TABS: ['Equipment Items', 'Meters']
-  },
-};
+
 
 /**
  * Displays a modal dialog to initiate the file download.
