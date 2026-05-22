@@ -41,7 +41,11 @@ const CONFIG = {
     importHeaderCount: 3,   // Number of header rows to copy from RAWImport to export sheet
     exportHeaderIndex: 3,   // Which of those rows contains the headers to match (1-indexed)
     editHeaderIndex: 1      // Which row in Equipment_Edit contains headers (1-indexed)
-  }
+  },
+  Exporting: {
+    EXPORT_FILE_NAME: 'Equipment Edit - google export.xlsx',
+    EXPORT_TABS: ['Equipment Items', 'Meters']
+  },
 };
 
 /**
