@@ -2,11 +2,16 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: Export.gs
-File Version: 2.12
+File Version: 2.11
 Chat link: [Insert Link]
 */
 
-
+/**
+ * @file Export.gs
+ * @description Handles file export logic. Converts the saved xlsx import template
+ *              to a temporary Google Sheet, writes current data into it, then
+ *              exports it back to xlsx — preserving FMX-specific metadata.
+ */
 
 /**
  * Displays a modal dialog to initiate the file download.
@@ -69,14 +74,14 @@ function showDownloadDialog() {
   SpreadsheetApp.getUi().showModalDialog(html, 'Downloading Report...');
 }
 
-
-
 /**
  * Fetches the exported XLSX data as a Base64 string.
- * Uses a temporary file to combine specific tabs into one export.
+ * Converts the saved xlsx import template to a temporary Google Sheet via the
+ * Drive API, writes current tab data into it, then exports it back to xlsx.
+ * This preserves FMX-specific metadata (custom properties, drawings, etc.)
+ * that a fresh Google Sheet export would strip out.
  * @return {string} Base64 encoded XLSX data.
  */
-
 function getExportData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -88,30 +93,40 @@ function getExportData() {
     throw new Error('No import template found. Please run an import first.');
   }
 
-  // ── 2. Open the saved template as a Google Sheet ─────────────────────────
-  // The template was saved as xlsx during import; opening it via Sheets API
-  // converts it temporarily while preserving the original file's structure
-  // (including FMX custom properties) for the final export fetch.
+  // ── 2. Convert the saved xlsx template to a temporary Google Sheet ────────
+  // The Drive API converts the xlsx to a Google Sheet while the original file
+  // remains untouched in Drive. The temp sheet is trashed in the finally block.
   const templateFile = DriveApp.getFileById(templateFileId);
-  const tempSs = SpreadsheetApp.open(templateFile);
-  const tempSsId = tempSs.getId();
+  const tempName = 'TempExport_' + Utilities.getUuid();
+  const resource = {
+    title: tempName,
+    name: tempName,
+    mimeType: MimeType.GOOGLE_SHEETS
+  };
+
+  const tempFile = Drive.Files.insert
+    ? Drive.Files.insert(resource, templateFile.getBlob())
+    : Drive.Files.create(resource, templateFile.getBlob());
+
+  const tempSsId = tempFile.id;
+  const tempSs = SpreadsheetApp.openById(tempSsId);
 
   try {
-    // ── 3. Get source sheets from the active spreadsheet ───────────────────
+    // ── 3. Write current tab data into the temp sheet ─────────────────────
     const tabNames = CONFIG.Exporting.EXPORT_TABS;
+
     for (const name of tabNames) {
-      const sheet = ss.getSheetByName(name);
-      if (!sheet) {
+      const sourceSheet = ss.getSheetByName(name);
+      if (!sourceSheet) {
         throw new Error('Sheet "' + name + '" not found. Please ensure the tab exists.');
       }
 
-      // Find the matching tab in the template spreadsheet and overwrite its data
       const targetSheet = tempSs.getSheetByName(name);
       if (!targetSheet) {
         throw new Error('Tab "' + name + '" not found in the saved template. Please re-run an import.');
       }
 
-      const sourceData = sheet.getDataRange().getValues();
+      const sourceData = sourceSheet.getDataRange().getValues();
       targetSheet.clearContents();
       targetSheet.getRange(1, 1, sourceData.length, sourceData[0].length).setValues(sourceData);
     }
@@ -119,7 +134,7 @@ function getExportData() {
     SpreadsheetApp.flush();
     Utilities.sleep(3000);
 
-    // ── 4. Export the updated template as xlsx ─────────────────────────────
+    // ── 4. Export the updated temp sheet as xlsx ──────────────────────────
     const url = `https://docs.google.com/spreadsheets/d/${tempSsId}/export?format=xlsx`;
     const fetchOptions = {
       headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
@@ -169,8 +184,13 @@ function getExportData() {
     return Utilities.base64Encode(response.getBlob().getBytes());
 
   } finally {
-    // The template file stays in Drive — do NOT trash it.
-    // Only close out any in-memory references.
+    // Trash the temporary converted sheet — the original xlsx template in
+    // Drive is intentionally left untouched for future exports.
+    try {
+      DriveApp.getFileById(tempSsId).setTrashed(true);
+    } catch (e) {
+      console.warn('Could not trash temp export file: ' + e.message);
+    }
   }
 }
 
