@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: Export.gs
-File Version: 2.11
+File Version: 2.12
 Chat link: [Insert Link]
 */
 
