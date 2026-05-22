@@ -2,13 +2,15 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: Export.gs
-File Version: 2.00
+File Version: 2.10
 Chat link: [Insert Link]
 */
 
-const CONFIG_Test = {
-  EXPORT_FILE_NAME: 'Equipment Edit - google export.xlsx',
-  EXPORT_TABS: ['Equipment Items', 'Meters']
+const CONFIG = {
+  Exporting: {
+    EXPORT_FILE_NAME: 'Equipment Edit - google export.xlsx',
+    EXPORT_TABS: ['Equipment Items', 'Meters']
+  },
 };
 
 /**
@@ -24,7 +26,7 @@ function showDownloadDialog() {
         try {
           const link = document.createElement('a');
           link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + base64Data;
-          link.download = '${CONFIG_Test.EXPORT_FILE_NAME}';
+          link.download = '${CONFIG.Exporting.EXPORT_FILE_NAME}';
           document.body.appendChild(link);
           link.click();
           
@@ -70,7 +72,7 @@ function showDownloadDialog() {
  */
 function getExportData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tabNames = CONFIG_Test.EXPORT_TABS;
+  const tabNames = CONFIG.Exporting.EXPORT_TABS;
   const sheetsToExport = [];
   
   // Verify all required tabs exist
