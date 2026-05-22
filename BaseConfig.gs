@@ -46,6 +46,9 @@ const CONFIG = {
     EXPORT_FILE_NAME: 'Equipment Edit - google export.xlsx',
     EXPORT_TABS: ['Equipment Items', 'Meters']
   },
+  scriptProperties: {
+    templateFileId: 'FMX_TEMPLATE_FILE_ID'
+  },
 };
 
 /**
