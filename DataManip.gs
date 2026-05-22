@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: DataManip.gs
-File Version: 3.05
+File Version: 3.06
 Chat link: [Insert Link]
 */
 
@@ -109,8 +109,20 @@ function saveAndProcessHeaders(selectedHeaders) {
 
 /**
  * Main controller function to execute the export process.
- * Clears the export tab, copies header rows from RAWImport, and maps
- * data from Equipment_Edit using column header matching.
+ *
+ * Merges data from two sources into the export sheet ("Equipment Items"):
+ *   1. RAWImport  — the full original dataset (all columns, all rows).
+ *   2. Equipment_Edit — the user-edited subset (selected columns only).
+ *
+ * Merge strategy (per row, per column):
+ *   - Rows are matched between the two sheets using the ID* column as the key.
+ *   - For matched rows, Equipment_Edit values take priority over RAWImport values.
+ *     Any column present in RAWImport but absent from Equipment_Edit is filled
+ *     from RAWImport, preserving unedited data.
+ *   - New items (blank or missing ID* in Equipment_Edit) have no RAWImport
+ *     counterpart. They are exported as-is using only Equipment_Edit values;
+ *     any column not present in Equipment_Edit will be blank.
+ *
  * @return {void}
  */
 function runExportProcess() {
@@ -118,59 +130,106 @@ function runExportProcess() {
 
   const exportSheet = ss.getSheetByName(CONFIG.sheets.export);
   const importSheet = ss.getSheetByName(CONFIG.sheets.import);
-  const editSheet = ss.getSheetByName(CONFIG.sheets.edit);
+  const editSheet   = ss.getSheetByName(CONFIG.sheets.edit);
 
   if (!exportSheet || !importSheet || !editSheet) {
     throw new Error("One or more required sheets are missing. Please verify sheet names.");
   }
 
-  // 1) Clear all data & formatting from export sheet
+  // ── 1. Clear export sheet ────────────────────────────────────────────────
   exportSheet.clear();
 
-  // 2) Copy the first N header rows from RAWImport to export sheet
+  // ── 2. Copy the first N header rows from RAWImport to export sheet ───────
   const importLastCol = importSheet.getLastColumn();
   const importLastRow = importSheet.getLastRow();
 
-  if (importLastCol > 0 && importLastRow >= CONFIG.rows.importHeaderCount) {
-    const topRowsRange = importSheet.getRange(1, 1, CONFIG.rows.importHeaderCount, importLastCol);
-    topRowsRange.copyTo(exportSheet.getRange(1, 1));
-  } else if (importLastCol > 0) {
-    throw new Error("The source sheet " + CONFIG.sheets.import + " does not have the required " + CONFIG.rows.importHeaderCount + " header rows.");
+  if (importLastCol === 0) return; // Nothing to export
+
+  if (importLastRow < CONFIG.rows.importHeaderCount) {
+    throw new Error(
+      `The source sheet "${CONFIG.sheets.import}" does not have the required ` +
+      `${CONFIG.rows.importHeaderCount} header rows.`
+    );
   }
 
-  // 3) Pull values from Equipment_Edit and transfer to export sheet, matching headers
-  const exportLastCol = exportSheet.getLastColumn();
-  if (exportLastCol === 0) return; // No headers to match against
+  importSheet
+    .getRange(1, 1, CONFIG.rows.importHeaderCount, importLastCol)
+    .copyTo(exportSheet.getRange(1, 1));
 
-  // Get target headers from the designated header row in export sheet
-  const targetHeaders = exportSheet.getRange(CONFIG.rows.exportHeaderIndex, 1, 1, exportLastCol).getValues()[0];
+  // ── 3. Resolve column headers ────────────────────────────────────────────
 
-  // Get all data from Equipment_Edit for batch processing
-  const editData = editSheet.getDataRange().getValues();
-  if (editData.length <= CONFIG.rows.editHeaderIndex) return; // No data rows below the header
+  // Target (export) headers — the row that data columns must match against.
+  const exportLastCol   = exportSheet.getLastColumn();
+  if (exportLastCol === 0) return;
 
-  const sourceHeaders = editData[CONFIG.rows.editHeaderIndex - 1].map(h => h ? h.toString().trim() : "");
-  const sourceRecords = editData.slice(CONFIG.rows.editHeaderIndex);
+  const targetHeaders = exportSheet
+    .getRange(CONFIG.rows.exportHeaderIndex, 1, 1, exportLastCol)
+    .getValues()[0]
+    .map(h => h ? h.toString().trim() : "");
 
-  // Map columns: Target Column Index -> Source Column Index
-  const columnMap = targetHeaders.map(header => {
-    const cleanHeader = header ? header.toString().trim() : "";
-    if (cleanHeader === "") return -1;
-    return sourceHeaders.indexOf(cleanHeader);
-  });
+  // RAWImport data rows (everything below the header block).
+  const rawData       = importSheet.getDataRange().getValues();
+  const rawHeaderRow  = rawData[CONFIG.rows.importHeaderCount - 1]
+    .map(h => h ? h.toString().trim() : "");
+  const rawDataRows   = rawData.slice(CONFIG.rows.importHeaderCount);
 
-  // Build output 2D array by mapping source records to the target column order
-  const outputData = sourceRecords.map(record => {
-    return columnMap.map(sourceColIndex => {
-      return sourceColIndex !== -1 ? record[sourceColIndex] : "";
+  // Equipment_Edit headers and data rows.
+  const editData      = editSheet.getDataRange().getValues();
+  if (editData.length <= CONFIG.rows.editHeaderIndex) return;
+
+  const editHeaders   = editData[CONFIG.rows.editHeaderIndex - 1]
+    .map(h => h ? h.toString().trim() : "");
+  const editDataRows  = editData.slice(CONFIG.rows.editHeaderIndex);
+
+  // ── 4. Build a lookup map: ID* → RAWImport row (array of values) ─────────
+  // Rows with a blank/missing ID* are skipped — they cannot be matched.
+  const rawIdColIndex = rawHeaderRow.indexOf(CONFIG.mapping.required[0]);
+  const rawById       = {};
+
+  if (rawIdColIndex !== -1) {
+    rawDataRows.forEach(row => {
+      const id = row[rawIdColIndex] ? row[rawIdColIndex].toString().trim() : "";
+      if (id !== "") {
+        rawById[id] = row;
+      }
+    });
+  }
+
+  // ── 5. Resolve column mappings ───────────────────────────────────────────
+  // For each target column, note which index to use in RAWImport and Equipment_Edit.
+  const editIdColIndex = editHeaders.indexOf(CONFIG.mapping.required[0]);
+
+  const colMapRaw  = targetHeaders.map(h => rawHeaderRow.indexOf(h));
+  const colMapEdit = targetHeaders.map(h => editHeaders.indexOf(h));
+
+  // ── 6. Build merged output rows ──────────────────────────────────────────
+  const outputData = editDataRows.map(editRow => {
+    const itemId = (editIdColIndex !== -1 && editRow[editIdColIndex] !== undefined)
+      ? editRow[editIdColIndex].toString().trim()
+      : "";
+
+    // Look up the matching RAWImport row (null for new items with no ID*).
+    const rawRow = (itemId !== "" && rawById[itemId]) ? rawById[itemId] : null;
+
+    return targetHeaders.map((_, colIdx) => {
+      const editVal = colMapEdit[colIdx] !== -1 ? editRow[colMapEdit[colIdx]] : undefined;
+      const rawVal  = (rawRow && colMapRaw[colIdx] !== -1) ? rawRow[colMapRaw[colIdx]] : "";
+
+      // Equipment_Edit takes priority; fall back to RAWImport for unedited columns.
+      // A cell is considered "present" if its column exists in Equipment_Edit,
+      // even if the value itself happens to be blank (intentional clear by user).
+      return colMapEdit[colIdx] !== -1 ? editVal : rawVal;
     });
   });
 
-  // Write the mapped data in a single batch operation below the copied header rows
+  // ── 7. Write merged data to export sheet ─────────────────────────────────
   if (outputData.length > 0 && outputData[0].length > 0) {
     exportSheet.getRange(
       CONFIG.rows.importHeaderCount + 1, 1,
-      outputData.length, outputData[0].length
+      outputData.length,
+      outputData[0].length
     ).setValues(outputData);
   }
 }
+
+// EOF: DataManip.gs
