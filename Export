@@ -1,24 +1,11 @@
 /*
-Project Name: Tab Exporter
-Project Version: 1.12
+Project Name: FMX Equipment Import non-Gem
+Project Version: 5.00
 Filename: Export.gs
-File Version: 2.01
-Chat link: 
+File Version: 2.10
+Chat link: [Insert Link]
 */
 
-function createTestMenu() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu("TestMenu")
-    .addItem('Prep Export', 'runExportProcess')
-    .addItem('showDownloadDialog', 'showDownloadDialog')
-    //.addItem('getExportData', 'getExportData')
-    .addToUi();
-}
-
-const CONFIG_Test = {
-  EXPORT_FILE_NAME: 'Equipment Edit - google export.xlsx',
-  EXPORT_TABS: ['Equipment Items', 'Meters']
-};
 
 /**
  * Displays a modal dialog to initiate the file download.
@@ -118,7 +105,7 @@ function getExportData() {
     // Retry loop: attempt up to 3 times with a 2-second delay between attempts.
     // The try/catch inside the loop ensures network-level exceptions (e.g. timeouts,
     // DNS failures, GAS quota errors) also trigger a retry, not just HTTP error codes.
-    const url = \`https://docs.google.com/spreadsheets/d/\${tempSsId}/export?format=xlsx\`;
+    const url = `https://docs.google.com/spreadsheets/d/${tempSsId}/export?format=xlsx`;
     const fetchOptions = {
       headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
       muteHttpExceptions: true
@@ -135,14 +122,14 @@ function getExportData() {
         lastError = null; // Clear any previous network error as the fetch call succeeded
         if (response.getResponseCode() === 200) break;
         if (attempt < maxAttempts) {
-          console.warn(\`Export attempt \${attempt} failed (code: \${response.getResponseCode()}). Retrying...\`);
+          console.warn(`Export attempt ${attempt} failed (code: ${response.getResponseCode()}). Retrying...`);
           Utilities.sleep(retryDelay);
         }
       } catch (networkError) {
         // Catches network-level failures that muteHttpExceptions does not suppress
         lastError = networkError;
         if (attempt < maxAttempts) {
-          console.warn(\`Export attempt \${attempt} threw a network error: \${networkError.message}. Retrying...\`);
+          console.warn(`Export attempt ${attempt} threw a network error: ${networkError.message}. Retrying...`);
           Utilities.sleep(retryDelay);
         }
       }
@@ -150,7 +137,7 @@ function getExportData() {
 
     // If the last attempt was a network-level throw, re-throw it now
     if (lastError) {
-      throw new Error(\`Export failed after \${maxAttempts} attempts due to a network error: \${lastError.message}\`);
+      throw new Error(`Export failed after ${maxAttempts} attempts due to a network error: ${lastError.message}`);
     }
 
     if (response.getResponseCode() !== 200) {
@@ -161,9 +148,9 @@ function getExportData() {
         responseSnippet = '[response body could not be decoded]';
       }
       throw new Error(
-        \`Failed to fetch the export from Google servers after \${maxAttempts} attempts. \` +
-        \`Code: \${response.getResponseCode()}. \` +
-        \`Response: \${responseSnippet}\`
+        `Failed to fetch the export from Google servers after ${maxAttempts} attempts. ` +
+        `Code: ${response.getResponseCode()}. ` +
+        `Response: ${responseSnippet}`
       );
     }
     
