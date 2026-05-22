@@ -130,6 +130,7 @@ function getExportData() {
           Utilities.sleep(retryDelay);
         }
       } catch (networkError) {
+        // Catches network-level failures that muteHttpExceptions does not suppress
         lastError = networkError;
         if (attempt < maxAttempts) {
           console.warn(`Export attempt ${attempt} threw a network error: ${networkError.message}. Retrying...`);
@@ -138,6 +139,7 @@ function getExportData() {
       }
     }
 
+    // If the last attempt was a network-level throw, re-throw it now
     if (lastError) {
       throw new Error(`Export failed after ${maxAttempts} attempts due to a network error: ${lastError.message}`);
     }
