@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 4.00
 Filename: DataManip.gs
-File Version: 3.06
+File Version: 3.07
 Chat link: [Insert Link]
 */
 
@@ -136,10 +136,9 @@ function runExportProcess() {
     throw new Error("One or more required sheets are missing. Please verify sheet names.");
   }
 
-  // ── 1. Clear export sheet ────────────────────────────────────────────────
-  exportSheet.clear();
-
-  // ── 2. Copy the first N header rows from RAWImport to export sheet ───────
+  // ── 1. Validate source before touching the export sheet ──────────────────
+  // Clearing is deferred until after validation to prevent accidental data
+  // loss if the source sheet fails its checks.
   const importLastCol = importSheet.getLastColumn();
   const importLastRow = importSheet.getLastRow();
 
@@ -152,37 +151,39 @@ function runExportProcess() {
     );
   }
 
+  // ── 2. Clear export sheet and copy header rows from RAWImport ────────────
+  exportSheet.clear();
+
   importSheet
     .getRange(1, 1, CONFIG.rows.importHeaderCount, importLastCol)
     .copyTo(exportSheet.getRange(1, 1));
 
   // ── 3. Resolve column headers ────────────────────────────────────────────
 
-  // Target (export) headers — the row that data columns must match against.
-  const exportLastCol   = exportSheet.getLastColumn();
-  if (exportLastCol === 0) return;
-
-  const targetHeaders = exportSheet
-    .getRange(CONFIG.rows.exportHeaderIndex, 1, 1, exportLastCol)
-    .getValues()[0]
-    .map(h => h ? h.toString().trim() : "");
-
   // RAWImport data rows (everything below the header block).
-  const rawData       = importSheet.getDataRange().getValues();
-  const rawHeaderRow  = rawData[CONFIG.rows.importHeaderCount - 1]
+  const rawData      = importSheet.getDataRange().getValues();
+  const rawHeaderRow = rawData[CONFIG.rows.importHeaderCount - 1]
     .map(h => h ? h.toString().trim() : "");
-  const rawDataRows   = rawData.slice(CONFIG.rows.importHeaderCount);
+  const rawDataRows  = rawData.slice(CONFIG.rows.importHeaderCount);
+
+  // Target (export) headers — since we just copied them from RAWImport, use
+  // the in-memory rawHeaderRow directly to avoid a redundant API read.
+  const targetHeaders = rawHeaderRow;
+  if (targetHeaders.length === 0) return;
 
   // Equipment_Edit headers and data rows.
-  const editData      = editSheet.getDataRange().getValues();
+  const editData     = editSheet.getDataRange().getValues();
   if (editData.length <= CONFIG.rows.editHeaderIndex) return;
 
-  const editHeaders   = editData[CONFIG.rows.editHeaderIndex - 1]
+  const editHeaders  = editData[CONFIG.rows.editHeaderIndex - 1]
     .map(h => h ? h.toString().trim() : "");
-  const editDataRows  = editData.slice(CONFIG.rows.editHeaderIndex);
+  const editDataRows = editData.slice(CONFIG.rows.editHeaderIndex);
 
   // ── 4. Build a lookup map: ID* → RAWImport row (array of values) ─────────
   // Rows with a blank/missing ID* are skipped — they cannot be matched.
+  // The guard on rawIdColIndex ensures we don't attempt a lookup if ID* is
+  // somehow absent from RAWImport; rawById stays empty and new items pass
+  // through without error.
   const rawIdColIndex = rawHeaderRow.indexOf(CONFIG.mapping.required[0]);
   const rawById       = {};
 
