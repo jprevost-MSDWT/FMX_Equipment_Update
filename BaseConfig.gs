@@ -1,8 +1,8 @@
 /*
 Project Name: FMX Equipment Import non-Gem
-Project Version: 4.00
+Project Version: 5.00
 Filename: BaseConfig.gs
-File Version: 3.10
+File Version: 3.11
 Chat link: [Insert Link]
 */
 
@@ -65,6 +65,7 @@ function createCustomMenu() {
     .addSeparator()
     .addItem('Import Edit', 'promptForImport')
     .addItem('Prep Export', 'runExportProcess')
+    .addItem('Download Edit File', 'showDownloadDialog')
     .addSeparator()
     .addItem('Refresh Test menu', 'createTestMenu')  //Used for testing
     .addToUi();

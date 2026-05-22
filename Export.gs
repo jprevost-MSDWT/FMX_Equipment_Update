@@ -1,19 +1,10 @@
 /*
-Project Name: Tab Exporter
-Project Version: 1.12
-Filename: Test.gs
-File Version: 1.16
-Chat link: 
+Project Name: FMX Equipment Import non-Gem
+Project Version: 5.00
+Filename: Export.gs
+File Version: 2.00
+Chat link: [Insert Link]
 */
-
-function createTestMenu() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu("TestMenu")
-    .addItem('Prep Export', 'runExportProcess')
-    .addItem('showDownloadDialog', 'showDownloadDialog')
-    //.addItem('getExportData', 'getExportData')
-    .addToUi();
-}
 
 const CONFIG_Test = {
   EXPORT_FILE_NAME: 'Equipment Edit - google export.xlsx',
@@ -176,4 +167,4 @@ function getExportData() {
   }
 }
 
-// EOF: Test.gs
+// EOF: Export.gs
