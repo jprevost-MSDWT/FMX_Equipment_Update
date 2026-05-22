@@ -76,47 +76,50 @@ function showDownloadDialog() {
  * Uses a temporary file to combine specific tabs into one export.
  * @return {string} Base64 encoded XLSX data.
  */
+
 function getExportData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tabNames = CONFIG.Exporting.EXPORT_TABS;
-  const sheetsToExport = [];
-  
-  // Verify all required tabs exist
-  for (const name of tabNames) {
-    const sheet = ss.getSheetByName(name);
-    if (!sheet) {
-      throw new Error('Sheet "' + name + '" not found. Please ensure the tab exists.');
-    }
-    sheetsToExport.push(sheet);
+
+  // ── 1. Retrieve the saved template file ID ───────────────────────────────
+  const props = PropertiesService.getScriptProperties();
+  const templateFileId = props.getProperty(CONFIG.scriptProperties.templateFileId);
+
+  if (!templateFileId) {
+    throw new Error('No import template found. Please run an import first.');
   }
-  
-  // Create a temporary spreadsheet to hold just the specific tabs
-  const tempSs = SpreadsheetApp.create('TempExport_' + Utilities.getUuid());
+
+  // ── 2. Open the saved template as a Google Sheet ─────────────────────────
+  // The template was saved as xlsx during import; opening it via Sheets API
+  // converts it temporarily while preserving the original file's structure
+  // (including FMX custom properties) for the final export fetch.
+  const templateFile = DriveApp.getFileById(templateFileId);
+  const tempSs = SpreadsheetApp.open(templateFile);
   const tempSsId = tempSs.getId();
-  
+
   try {
-    // Rename the default sheet to avoid name conflicts if any exported tab is named "Sheet1"
-    const initialSheet = tempSs.getSheets()[0];
-    initialSheet.setName('TEMP_DEFAULT');
+    // ── 3. Get source sheets from the active spreadsheet ───────────────────
+    const tabNames = CONFIG.Exporting.EXPORT_TABS;
+    for (const name of tabNames) {
+      const sheet = ss.getSheetByName(name);
+      if (!sheet) {
+        throw new Error('Sheet "' + name + '" not found. Please ensure the tab exists.');
+      }
 
-    // Copy the specific tabs into the temporary spreadsheet
-    for (const sheet of sheetsToExport) {
-      const copiedSheet = sheet.copyTo(tempSs).setName(sheet.getName());
-      copiedSheet.showSheet(); // Ensure the tab is not hidden in the final export
+      // Find the matching tab in the template spreadsheet and overwrite its data
+      const targetSheet = tempSs.getSheetByName(name);
+      if (!targetSheet) {
+        throw new Error('Tab "' + name + '" not found in the saved template. Please re-run an import.');
+      }
+
+      const sourceData = sheet.getDataRange().getValues();
+      targetSheet.clearContents();
+      targetSheet.getRange(1, 1, sourceData.length, sourceData[0].length).setValues(sourceData);
     }
-    
-    // Remove the default placeholder sheet now that all tabs have been copied
-    tempSs.deleteSheet(initialSheet);
-    
-    SpreadsheetApp.flush(); // Commit changes before fetching
 
-    // Initial wait to allow Google's export servers to sync the new tabs.
-    // 3 seconds covers most cases; the retry loop below handles slow days.
+    SpreadsheetApp.flush();
     Utilities.sleep(3000);
 
-    // Retry loop: attempt up to 3 times with a 2-second delay between attempts.
-    // The try/catch inside the loop ensures network-level exceptions (e.g. timeouts,
-    // DNS failures, GAS quota errors) also trigger a retry, not just HTTP error codes.
+    // ── 4. Export the updated template as xlsx ─────────────────────────────
     const url = `https://docs.google.com/spreadsheets/d/${tempSsId}/export?format=xlsx`;
     const fetchOptions = {
       headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
@@ -131,14 +134,13 @@ function getExportData() {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         response = UrlFetchApp.fetch(url, fetchOptions);
-        lastError = null; // Clear any previous network error as the fetch call succeeded
+        lastError = null;
         if (response.getResponseCode() === 200) break;
         if (attempt < maxAttempts) {
           console.warn(`Export attempt ${attempt} failed (code: ${response.getResponseCode()}). Retrying...`);
           Utilities.sleep(retryDelay);
         }
       } catch (networkError) {
-        // Catches network-level failures that muteHttpExceptions does not suppress
         lastError = networkError;
         if (attempt < maxAttempts) {
           console.warn(`Export attempt ${attempt} threw a network error: ${networkError.message}. Retrying...`);
@@ -147,7 +149,6 @@ function getExportData() {
       }
     }
 
-    // If the last attempt was a network-level throw, re-throw it now
     if (lastError) {
       throw new Error(`Export failed after ${maxAttempts} attempts due to a network error: ${lastError.message}`);
     }
@@ -161,17 +162,15 @@ function getExportData() {
       }
       throw new Error(
         `Failed to fetch the export from Google servers after ${maxAttempts} attempts. ` +
-        `Code: ${response.getResponseCode()}. ` +
-        `Response: ${responseSnippet}`
+        `Code: ${response.getResponseCode()}. Response: ${responseSnippet}`
       );
     }
-    
-    const blob = response.getBlob();
-    return Utilities.base64Encode(blob.getBytes());
-    
+
+    return Utilities.base64Encode(response.getBlob().getBytes());
+
   } finally {
-    // Always clean up the temporary file, even if an error occurs
-    DriveApp.getFileById(tempSsId).setTrashed(true);
+    // The template file stays in Drive — do NOT trash it.
+    // Only close out any in-memory references.
   }
 }
 
