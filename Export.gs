@@ -6,16 +6,6 @@ File Version: 2.00
 Chat link: [Insert Link]
 */
 
-
-function createTestMenu() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu("TestMenu")
-    .addItem('Prep Export', 'runExportProcess')
-    .addItem('showDownloadDialog', 'showDownloadDialog')
-    //.addItem('getExportData', 'getExportData')
-    .addToUi();
-}
-
 const CONFIG_Test = {
   EXPORT_FILE_NAME: 'Equipment Edit - google export.xlsx',
   EXPORT_TABS: ['Equipment Items', 'Meters']
