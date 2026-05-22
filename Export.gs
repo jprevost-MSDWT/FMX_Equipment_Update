@@ -1,10 +1,11 @@
 /*
-Project Name: Tab Exporter
-Project Version: 1.12
-Filename: Test.gs
-File Version: 1.16
-Chat link: 
+Project Name: FMX Equipment Import non-Gem
+Project Version: 5.00
+Filename: Export.gs
+File Version: 2.00
+Chat link: [Insert Link]
 */
+
 
 function createTestMenu() {
   const ui = SpreadsheetApp.getUi();
@@ -176,4 +177,4 @@ function getExportData() {
   }
 }
 
-// EOF: Test.gs
+// EOF: Export.gs
