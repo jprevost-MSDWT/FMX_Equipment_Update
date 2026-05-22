@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: Export.gs
-File Version: 2.10
+File Version: 2.11
 Chat link: [Insert Link]
 */
 
@@ -11,23 +11,33 @@ Chat link: [Insert Link]
 /**
  * Displays a modal dialog to initiate the file download.
  * Fetches data via asynchronous client-side call to prevent UI freezing.
+ * Uses Blob + createObjectURL to avoid data: URL size limits in Chrome.
  * @return {void}
  */
 function showDownloadDialog() {
   const htmlString = `
     <script>
-      // Triggered when base64 data is successfully returned from the server
       function triggerDownload(base64Data) {
         try {
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          });
+
+          const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
-          link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + base64Data;
+          link.href = url;
           link.download = '${CONFIG.Exporting.EXPORT_FILE_NAME}';
           document.body.appendChild(link);
           link.click();
-          
+
+          URL.revokeObjectURL(url);
           document.getElementById('status').innerText = 'Download initiated. Closing...';
-          
-          // Auto-close the dialog after a brief delay
           setTimeout(function() {
             google.script.host.close();
           }, 1500);
@@ -41,14 +51,13 @@ function showDownloadDialog() {
         document.getElementById('status').style.color = 'red';
       }
 
-      // Fetch the data asynchronously as soon as the dialog loads
       window.onload = function() {
         google.script.run
           .withSuccessHandler(triggerDownload)
           .withFailureHandler(handleError)
           .getExportData();
       };
-    </script>
+    <\/script>
     <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
       <p id="status" style="color: #333; font-size: 16px; margin-bottom: 10px;">Gathering data, please wait...</p>
     </div>
@@ -59,6 +68,8 @@ function showDownloadDialog() {
       .setHeight(150);
   SpreadsheetApp.getUi().showModalDialog(html, 'Downloading Report...');
 }
+
+
 
 /**
  * Fetches the exported XLSX data as a Base64 string.
