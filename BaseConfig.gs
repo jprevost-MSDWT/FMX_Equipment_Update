@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: BaseConfig.gs
-File Version: 3.11
+File Version: 3.12
 Chat link: [Insert Link]
 */
 
@@ -45,6 +45,9 @@ const CONFIG = {
   Exporting: {
     EXPORT_FILE_NAME: 'Equipment Edit - google export.xlsx',
     EXPORT_TABS: ['Equipment Items', 'Meters']
+  },
+  scriptProperties: {
+    templateFileId: 'FMX_TEMPLATE_FILE_ID'
   },
 };
 

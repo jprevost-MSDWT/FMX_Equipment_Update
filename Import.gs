@@ -2,13 +2,14 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: Import.gs
-File Version: 3.05
+File Version: 3.06
 Chat link: [Insert Link]
 */
 
 /**
- * @file ImportExport.gs
- * @description Handles Import and Export logic with robust Drive API error handling.
+ * @file Import.gs
+ * @description Handles Import logic with robust Drive API error handling.
+ *              Saves the imported xlsx as a template for use during export.
  */
 
 /**
@@ -45,6 +46,8 @@ function manualProcessImport() {
 /**
  * Handles the server-side import logic called by the dialog.
  * Decodes Base64 input, converts Excel to values (via Drive API), or parses CSV.
+ * For xlsx files, saves a copy of the original blob to Drive for use as an
+ * export template, preserving FMX-specific metadata (custom properties, drawings, etc.).
  * @param {string} dataUrl - The base64 data URL of the file OR raw text.
  * @param {string} fileType - The MIME type of the file.
  * @param {string} fileName - The name of the file (optional).
@@ -54,7 +57,7 @@ function importData(dataUrl, fileType, fileName) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.sheets.import);
-    
+
     if (!sheet) {
       throw new Error(`Sheet "${CONFIG.sheets.import}" not found.`);
     }
@@ -72,9 +75,9 @@ function importData(dataUrl, fileType, fileName) {
     }
 
     // 2. Determine File Type & Extract Data
-    const isExcel = fileType.includes('excel') || 
-                    fileType.includes('spreadsheetml') || 
-                    name.endsWith('.xlsx') || 
+    const isExcel = fileType.includes('excel') ||
+                    fileType.includes('spreadsheetml') ||
+                    name.endsWith('.xlsx') ||
                     name.endsWith('.xls');
 
     let data = [];
@@ -88,17 +91,26 @@ function importData(dataUrl, fileType, fileName) {
 
         const resource = {
           title: name,
-          name: name, 
+          name: name,
           mimeType: MimeType.GOOGLE_SHEETS
         };
-        
+
         let tempFile = Drive.Files.insert ? Drive.Files.insert(resource, blob) : Drive.Files.create(resource, blob);
         tempFileId = tempFile.id;
         const tempSs = SpreadsheetApp.openById(tempFileId);
         data = tempSs.getSheets()[0].getDataRange().getValues();
 
+        // 3. Save the original xlsx blob as the export template in Drive.
+        //    This preserves FMX-specific metadata (custom properties, drawings, etc.)
+        //    that Google's xlsx export would otherwise strip out.
+        saveExportTemplate(blob);
+
       } catch (err) {
-        if (err.message.includes("Drive API Service not detected") || err instanceof ReferenceError || err.message.includes("Drive is not defined")) {
+        if (
+          err.message.includes("Drive API Service not detected") ||
+          err instanceof ReferenceError ||
+          err.message.includes("Drive is not defined")
+        ) {
           throw new Error("Advanced Drive Service is not enabled. Please go to 'Services' (+), find 'Drive API', and add it to the project.");
         }
         throw new Error("XLSX Conversion Error: " + err.message);
@@ -121,14 +133,14 @@ function importData(dataUrl, fileType, fileName) {
       throw new Error("No data found in file.");
     }
 
-    // 3. Write Data to Sheet
+    // 4. Write Data to Sheet
     sheet.clear();
     sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
 
-    // 4. Extract Headers (Dynamic Search)
+    // 5. Extract Headers (Dynamic Search)
     let headerRowIndex = -1;
     const searchLimit = Math.min(10, data.length);
-    const requiredHeader = CONFIG.mapping.required[0] || "ID*"; 
+    const requiredHeader = CONFIG.mapping.required[0] || "ID*";
 
     for (let i = 0; i < searchLimit; i++) {
       if (data[i].includes(requiredHeader)) {
@@ -141,13 +153,13 @@ function importData(dataUrl, fileType, fileName) {
       throw new Error(`Could not find required header '${requiredHeader}' in the first ${searchLimit} rows of the file.`);
     }
 
-    const headerRow = data[headerRowIndex]; 
+    const headerRow = data[headerRowIndex];
     const cleanHeaders = headerRow.filter(h => h && h.toString().trim() !== "");
 
     // Update the available header options in the Data sheet
     updateDataSheetHeaders(cleanHeaders);
 
-    // 5. Transfer to Equipment_Edit based on current selection
+    // 6. Transfer to Equipment_Edit based on current selection
     const transferResult = processImportedData();
 
     return `File "${name}" imported successfully.\n${transferResult}`;
@@ -156,6 +168,31 @@ function importData(dataUrl, fileType, fileName) {
     console.error("Import Error: " + e.message);
     throw e;
   }
+}
+
+/**
+ * Saves the imported xlsx blob to Drive as the export template.
+ * Trashes any previously saved template to avoid accumulating stale files.
+ * The file ID is persisted in Script Properties for retrieval during export.
+ * @param {GoogleAppsScript.Base.Blob} blob - The original xlsx blob from the import.
+ */
+function saveExportTemplate(blob) {
+  const props = PropertiesService.getScriptProperties();
+  const propKey = CONFIG.scriptProperties.templateFileId;
+  const existingId = props.getProperty(propKey);
+
+  // Trash the previous saved template if one exists
+  if (existingId) {
+    try {
+      DriveApp.getFileById(existingId).setTrashed(true);
+    } catch (e) {
+      console.warn("Could not trash previous template file: " + e.message);
+    }
+  }
+
+  // Save the new template blob and store its file ID
+  const savedFile = DriveApp.createFile(blob.setName('FMX_Export_Template.xlsx'));
+  props.setProperty(propKey, savedFile.getId());
 }
 
 /**
@@ -172,11 +209,11 @@ function updateDataSheetHeaders(headers) {
   }
 
   const lastCol = dataSheet.getLastColumn();
-  if (lastCol === 0) return; 
+  if (lastCol === 0) return;
 
   const sheetHeaders = dataSheet.getRange(1, 1, 1, lastCol).getValues()[0];
   const targetHeaderName = CONFIG.namedRanges.Import_Headers;
-  
+
   const colIndex = sheetHeaders.indexOf(targetHeaderName);
 
   if (colIndex === -1) {
