@@ -2,14 +2,20 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: Import.gs
-File Version: 3.06
+File Version: 3.07
 Chat link: [Insert Link]
 */
 
 /**
  * @file Import.gs
  * @description Handles Import logic with robust Drive API error handling.
- *              Saves the imported xlsx as a template for use during export.
+ *              On xlsx import:
+ *                1. Saves the original xlsx to Drive (for metadata extraction).
+ *                2. Extracts and stores the four FMX metadata zip entries as
+ *                   base64 in Script Properties.
+ *                3. Converts the xlsx to a permanent Google Sheet in Drive
+ *                   (used as the write target during export).
+ *                4. Trashes any previously stored copies of both files.
  */
 
 /**
@@ -46,8 +52,7 @@ function manualProcessImport() {
 /**
  * Handles the server-side import logic called by the dialog.
  * Decodes Base64 input, converts Excel to values (via Drive API), or parses CSV.
- * For xlsx files, saves a copy of the original blob to Drive for use as an
- * export template, preserving FMX-specific metadata (custom properties, drawings, etc.).
+ * For xlsx files, saves metadata and a Google Sheet copy for use during export.
  * @param {string} dataUrl - The base64 data URL of the file OR raw text.
  * @param {string} fileType - The MIME type of the file.
  * @param {string} fileName - The name of the file (optional).
@@ -89,21 +94,24 @@ function importData(dataUrl, fileType, fileName) {
           throw new Error("Drive API Service not detected.");
         }
 
+        // Convert xlsx to Google Sheet to read the data
         const resource = {
           title: name,
           name: name,
           mimeType: MimeType.GOOGLE_SHEETS
         };
 
-        let tempFile = Drive.Files.insert ? Drive.Files.insert(resource, blob) : Drive.Files.create(resource, blob);
+        let tempFile = Drive.Files.insert
+          ? Drive.Files.insert(resource, blob)
+          : Drive.Files.create(resource, blob);
         tempFileId = tempFile.id;
+
         const tempSs = SpreadsheetApp.openById(tempFileId);
         data = tempSs.getSheets()[0].getDataRange().getValues();
 
-        // 3. Save the original xlsx blob as the export template in Drive.
-        //    This preserves FMX-specific metadata (custom properties, drawings, etc.)
-        //    that Google's xlsx export would otherwise strip out.
-        saveExportTemplate(blob);
+        // 3. Save xlsx metadata and a Google Sheet export template.
+        //    Must be called before the finally block trashes tempFileId.
+        saveExportTemplate(blob, tempFileId);
 
       } catch (err) {
         if (
@@ -115,6 +123,8 @@ function importData(dataUrl, fileType, fileName) {
         }
         throw new Error("XLSX Conversion Error: " + err.message);
       } finally {
+        // Trash the temporary conversion sheet — saveExportTemplate makes its own
+        // permanent copy, so this temp one is no longer needed.
         if (tempFileId) {
           try {
             DriveApp.getFileById(tempFileId).setTrashed(true);
@@ -133,7 +143,7 @@ function importData(dataUrl, fileType, fileName) {
       throw new Error("No data found in file.");
     }
 
-    // 4. Write Data to Sheet
+    // 4. Write Data to RAWImport Sheet
     sheet.clear();
     sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
 
@@ -171,28 +181,73 @@ function importData(dataUrl, fileType, fileName) {
 }
 
 /**
- * Saves the imported xlsx blob to Drive as the export template.
- * Trashes any previously saved template to avoid accumulating stale files.
- * The file ID is persisted in Script Properties for retrieval during export.
- * @param {GoogleAppsScript.Base.Blob} blob - The original xlsx blob from the import.
+ * Saves everything needed for export:
+ *   1. Extracts the four FMX metadata zip entries from the xlsx blob and stores
+ *      them as base64 strings in Script Properties.
+ *   2. Creates a permanent Google Sheet copy in Drive for use as the export
+ *      write target, storing its ID in Script Properties.
+ *   3. Trashes any previously stored xlsx template and Google Sheet template.
+ *
+ * @param {GoogleAppsScript.Base.Blob} blob        - The original xlsx blob.
+ * @param {string}                     convertedId - File ID of the already-converted
+ *                                                   Google Sheet (reused to avoid a
+ *                                                   second Drive conversion).
  */
-function saveExportTemplate(blob) {
+function saveExportTemplate(blob, convertedId) {
   const props = PropertiesService.getScriptProperties();
-  const propKey = CONFIG.scriptProperties.templateFileId;
-  const existingId = props.getProperty(propKey);
+  const metaKeys = CONFIG.scriptProperties.metadataFiles;
 
-  // Trash the previous saved template if one exists
-  if (existingId) {
-    try {
-      DriveApp.getFileById(existingId).setTrashed(true);
-    } catch (e) {
-      console.warn("Could not trash previous template file: " + e.message);
+  // ── 1. Extract metadata files from the xlsx zip ───────────────────────────
+  const zipEntries = Utilities.unzip(blob);
+  const entryMap = {};
+  zipEntries.forEach(function(entry) {
+    entryMap[entry.getName()] = entry;
+  });
+
+  const missingFiles = [];
+  const metaToStore = {};
+
+  Object.keys(metaKeys).forEach(function(zipPath) {
+    const propKey = metaKeys[zipPath];
+    if (entryMap[zipPath]) {
+      metaToStore[propKey] = Utilities.base64Encode(entryMap[zipPath].getBytes());
+    } else {
+      missingFiles.push(zipPath);
+      console.warn('Metadata file not found in xlsx: ' + zipPath);
     }
+  });
+
+  if (missingFiles.length > 0) {
+    console.warn('The following FMX metadata files were not found in the imported xlsx: ' + missingFiles.join(', ') +
+      '. The exported file may be rejected by FMX. Try re-downloading the template from FMX and importing again.');
   }
 
-  // Save the new template blob and store its file ID
-  const savedFile = DriveApp.createFile(blob.setName('FMX_Export_Template.xlsx'));
-  props.setProperty(propKey, savedFile.getId());
+  // Store all found metadata in Script Properties
+  Object.keys(metaToStore).forEach(function(propKey) {
+    props.setProperty(propKey, metaToStore[propKey]);
+  });
+
+  // ── 2. Trash previous stored files ───────────────────────────────────────
+  const prevXlsxId  = props.getProperty(CONFIG.scriptProperties.templateFileId);
+  const prevSheetId = props.getProperty(CONFIG.scriptProperties.templateSheetId);
+
+  if (prevXlsxId) {
+    try { DriveApp.getFileById(prevXlsxId).setTrashed(true); }
+    catch (e) { console.warn('Could not trash previous xlsx template: ' + e.message); }
+  }
+  if (prevSheetId) {
+    try { DriveApp.getFileById(prevSheetId).setTrashed(true); }
+    catch (e) { console.warn('Could not trash previous sheet template: ' + e.message); }
+  }
+
+  // ── 3. Save a fresh xlsx copy to Drive (for audit / future metadata reads) 
+  const xlsxFile = DriveApp.createFile(blob.setName('FMX_Export_Template.xlsx'));
+  props.setProperty(CONFIG.scriptProperties.templateFileId, xlsxFile.getId());
+
+  // ── 4. Make a permanent Google Sheet copy from the already-converted file ─
+  // We copy the converted file rather than re-converting to save Drive quota.
+  const sheetCopy = DriveApp.getFileById(convertedId).makeCopy('FMX_Export_Template_Sheet');
+  props.setProperty(CONFIG.scriptProperties.templateSheetId, sheetCopy.getId());
 }
 
 /**
