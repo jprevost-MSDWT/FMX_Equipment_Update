@@ -47,8 +47,15 @@ const CONFIG = {
     EXPORT_TABS: ['Equipment Items', 'Meters']
   },
   scriptProperties: {
-    templateFileId: 'FMX_TEMPLATE_FILE_ID'
-  },
+    templateSheetId: 'FMX_TEMPLATE_SHEET_ID',  // Google Sheet ID for writing export data into
+    templateFileId:  'FMX_TEMPLATE_FILE_ID',   // Original xlsx file ID for metadata extraction
+    metadataFiles: {
+      'docProps/custom.xml': 'FMX_META_CUSTOM_XML',  // FMX version properties — see Export.gs note
+      'docProps/core.xml':   'FMX_META_CORE_XML',
+      'docProps/app.xml':    'FMX_META_APP_XML',
+      '_rels/.rels':         'FMX_META_RELS'
+    }
+  }
 };
 
 /**
