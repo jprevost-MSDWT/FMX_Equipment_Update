@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: BaseConfig.gs
-File Version: 3.12
+File Version: 3.13
 Chat link: [Insert Link]
 */
 
@@ -53,7 +53,8 @@ const CONFIG = {
       'docProps/custom.xml': 'FMX_META_CUSTOM_XML',  // FMX version properties — see Export.gs note
       'docProps/core.xml':   'FMX_META_CORE_XML',
       'docProps/app.xml':    'FMX_META_APP_XML',
-      '_rels/.rels':         'FMX_META_RELS'
+      '_rels/.rels':         'FMX_META_RELS',
+      '[Content_Types].xml': 'FMX_META_CONTENT_TYPES' // Required to register docProps entries
     }
   }
 };
