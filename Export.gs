@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: Export.gs
-File Version: 2.15
+File Version: 2.16
 Chat link: [Insert Link]
 */
 
@@ -180,24 +180,22 @@ function getExportData() {
   // of what Google's export endpoint returns in the Content-Type header.
   const exportedBlob = response.getBlob();
   exportedBlob.setContentType('application/zip');
-  const exportedBytes = exportedBlob.getBytes();
-  const patchedBytes = patchXlsxMetadata(exportedBytes, metadataFiles);
+  const patchedBytes = patchXlsxMetadata(exportedBlob, metadataFiles);
 
   return Utilities.base64Encode(patchedBytes);
 }
 
 /**
- * Patches FMX metadata files into an xlsx byte array using native GAS zip methods.
+ * Patches FMX metadata files into an xlsx blob using native GAS zip methods.
  * Unzips the exported xlsx, removes any existing entries for the metadata paths,
  * appends the correct metadata entries from Script Properties, and rezips.
  * All blobs passed to Utilities.zip() originate from Utilities.unzip() or are
  * created with 'application/octet-stream' content type, which GAS accepts.
- * @param {number[]} zipBytes - The exported xlsx as a GAS byte array.
+ * @param {GoogleAppsScript.Base.Blob} zipBlob - The exported xlsx blob (content type must be application/zip).
  * @param {Object} metadataFiles - Map of zip path -> base64 encoded file content.
  * @return {number[]} Patched xlsx as a GAS byte array.
  */
-function patchXlsxMetadata(zipBytes, metadataFiles) {
-  const zipBlob = Utilities.newBlob(zipBytes, 'application/zip', 'export.xlsx');
+function patchXlsxMetadata(zipBlob, metadataFiles) {
   const entries = Utilities.unzip(zipBlob);
   const pathsToReplace = new Set(Object.keys(metadataFiles));
   const newBlobs = [];
