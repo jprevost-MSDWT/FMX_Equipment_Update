@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: Import.gs
-File Version: 3.10
+File Version: 3.11
 Chat link: [Insert Link]
 */
 
@@ -220,10 +220,10 @@ function saveExportTemplate(blob, convertedId) {
   const metaKeys = CONFIG.scriptProperties.metadataFiles;
 
   // ── 1. Extract metadata files from the xlsx zip ───────────────────────────
-  // Utilities.unzip requires content type to be application/zip regardless
-  // of the original file's MIME type.
-  blob.setContentType('application/zip');
-  const zipEntries = Utilities.unzip(blob);
+  // Use a separate zipBlob so the original blob retains its correct Excel
+  // MIME type when saved to Drive below. setContentType() returns a new blob.
+  const zipBlob = blob.setContentType('application/zip');
+  const zipEntries = Utilities.unzip(zipBlob);
   const entryMap = {};
   zipEntries.forEach(function(entry) {
     entryMap[entry.getName()] = entry;
