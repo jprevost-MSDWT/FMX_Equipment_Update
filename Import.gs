@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 6.00
 Filename: Import.gs
-File Version: 6.02
+File Version: 6.03
 Chat link: [Insert Link]
 */
 
@@ -167,10 +167,19 @@ function importData(dataUrl, fileType, fileName) {
     sheet.clear();
     sheet.getRange(1, 1, equipmentData.length, equipmentData[0].length).setValues(equipmentData);
 
-    // 4. Write Meters Data to RAWImport_Meters, or clear it if no meters data is present.
+    // 4. Determine whether the imported file contains real meters data.
+    // Checking length alone is not reliable — an empty Google Sheet tab returns
+    // [[""]] (length 1), which would cause a false positive. Instead, confirm
+    // that the required meters header is actually present somewhere in the data.
+    const requiredMeterHeader = CONFIG.mapping.metersRequired[0];
+    const hasMetersData = metersData.slice(0, CONFIG.mapping.headerSearchLimit || 20).some(
+      row => row.some(cell => cell != null && cell.toString().trim() === requiredMeterHeader)
+    );
+
+    // 5. Write Meters Data to RAWImport_Meters, or clear it if no valid meters data is present.
     // Clearing on empty prevents stale data from a previous import from persisting.
     const metersImportSheet = ss.getSheetByName(CONFIG.sheets.metersImport);
-    if (metersData.length > 0) {
+    if (hasMetersData) {
       if (!metersImportSheet) {
         throw new Error("Sheet " + CONFIG.sheets.metersImport + " not found. Please run setup.");
       }
@@ -180,7 +189,7 @@ function importData(dataUrl, fileType, fileName) {
       metersImportSheet.clear();
     }
 
-    // 5. Extract Equipment Headers (Dynamic Search).
+    // 6. Extract Equipment Headers (Dynamic Search).
     // Uses some()+trim() for robustness against leading/trailing whitespace in cells.
     let headerRowIndex = -1;
     const searchLimit   = Math.min(10, equipmentData.length);
@@ -203,13 +212,13 @@ function importData(dataUrl, fileType, fileName) {
     // Update the available header options in the Data sheet
     updateDataSheetHeaders(cleanHeaders);
 
-    // 6. Transfer Equipment data to Equipment_Edit
+    // 7. Transfer Equipment data to Equipment_Edit
     const equipmentResult = processImportedData();
 
-    // 7. Transfer Meters data to Meters_Edit, or clear it if no meters data is present.
+    // 8. Transfer Meters data to Meters_Edit, or clear it if no valid meters data is present.
     // Clearing on empty prevents stale data from a previous import from persisting.
     let metersResult = "";
-    if (metersData.length > 0) {
+    if (hasMetersData) {
       metersResult = processMetersData();
     } else {
       const metersEditSheet = ss.getSheetByName(CONFIG.sheets.metersEdit);
@@ -218,7 +227,7 @@ function importData(dataUrl, fileType, fileName) {
       }
     }
 
-    // 8. Save export template — only reached if all validation and transfers
+    // 9. Save export template — only reached if all validation and transfers
     //    above succeeded. Saves metadata and Google Sheet copy for export use.
     if (isExcel) {
       saveExportTemplate(blob, convertedId);
