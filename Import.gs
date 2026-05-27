@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 6.00
 Filename: Import.gs
-File Version: 6.01
+File Version: 6.02
 Chat link: [Insert Link]
 */
 
@@ -132,11 +132,11 @@ function importData(dataUrl, fileType, fileName) {
         equipmentData = tempSs.getSheets()[0].getDataRange().getValues();
 
         // ── Read Meters tab by name ───────────────────────────────────────
-        const metersSheet = tempSs.getSheetByName("Meters");
+        const metersSheet = tempSs.getSheetByName(CONFIG.sheets.metersExport);
         if (metersSheet) {
           metersData = metersSheet.getDataRange().getValues();
         } else {
-          console.warn('No "Meters" tab found in the imported xlsx. RAWImport_Meters will not be updated.');
+          console.warn('No "' + CONFIG.sheets.metersExport + '" tab found in the imported xlsx. RAWImport_Meters will not be updated.');
         }
 
       } catch (err) {
@@ -167,23 +167,27 @@ function importData(dataUrl, fileType, fileName) {
     sheet.clear();
     sheet.getRange(1, 1, equipmentData.length, equipmentData[0].length).setValues(equipmentData);
 
-    // 4. Write Meters Data to RAWImport_Meters (if present)
+    // 4. Write Meters Data to RAWImport_Meters, or clear it if no meters data is present.
+    // Clearing on empty prevents stale data from a previous import from persisting.
+    const metersImportSheet = ss.getSheetByName(CONFIG.sheets.metersImport);
     if (metersData.length > 0) {
-      const metersImportSheet = ss.getSheetByName(CONFIG.sheets.metersImport);
       if (!metersImportSheet) {
-        throw new Error(`Sheet "${CONFIG.sheets.metersImport}" not found. Please run setup.`);
+        throw new Error("Sheet " + CONFIG.sheets.metersImport + " not found. Please run setup.");
       }
       metersImportSheet.clear();
       metersImportSheet.getRange(1, 1, metersData.length, metersData[0].length).setValues(metersData);
+    } else if (metersImportSheet) {
+      metersImportSheet.clear();
     }
 
-    // 5. Extract Equipment Headers (Dynamic Search)
+    // 5. Extract Equipment Headers (Dynamic Search).
+    // Uses some()+trim() for robustness against leading/trailing whitespace in cells.
     let headerRowIndex = -1;
     const searchLimit   = Math.min(10, equipmentData.length);
     const requiredHeader = CONFIG.mapping.required[0] || "ID*";
 
     for (let i = 0; i < searchLimit; i++) {
-      if (equipmentData[i].includes(requiredHeader)) {
+      if (equipmentData[i].some(cell => cell && cell.toString().trim() === requiredHeader)) {
         headerRowIndex = i;
         break;
       }
@@ -202,10 +206,16 @@ function importData(dataUrl, fileType, fileName) {
     // 6. Transfer Equipment data to Equipment_Edit
     const equipmentResult = processImportedData();
 
-    // 7. Transfer Meters data to Meters_Edit (only if Meters data was found)
+    // 7. Transfer Meters data to Meters_Edit, or clear it if no meters data is present.
+    // Clearing on empty prevents stale data from a previous import from persisting.
     let metersResult = "";
     if (metersData.length > 0) {
       metersResult = processMetersData();
+    } else {
+      const metersEditSheet = ss.getSheetByName(CONFIG.sheets.metersEdit);
+      if (metersEditSheet) {
+        metersEditSheet.clearContents();
+      }
     }
 
     // 8. Save export template — only reached if all validation and transfers
