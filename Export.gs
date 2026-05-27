@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: Export.gs
-File Version: 2.16
+File Version: 2.17
 Chat link: [Insert Link]
 */
 
@@ -178,8 +178,7 @@ function getExportData() {
   // ── 4. Patch FMX metadata into the exported xlsx ──────────────────────────
   // Utilities.unzip requires content type to be application/zip regardless
   // of what Google's export endpoint returns in the Content-Type header.
-  const exportedBlob = response.getBlob();
-  exportedBlob.setContentType('application/zip');
+  const exportedBlob = response.getBlob().setContentType('application/zip');
   const patchedBytes = patchXlsxMetadata(exportedBlob, metadataFiles);
 
   return Utilities.base64Encode(patchedBytes);
