@@ -1,8 +1,8 @@
 /*
 Project Name: FMX Equipment Import non-Gem
-Project Version: 5.00
+Project Version: 6.00
 Filename: Import.gs
-File Version: 3.11
+File Version: 6.01
 Chat link: [Insert Link]
 */
 
@@ -11,8 +11,11 @@ Chat link: [Insert Link]
  * @description Handles Import logic with robust Drive API error handling.
  *              On xlsx import:
  *                1. Converts xlsx to Google Sheet to read data.
- *                2. Validates headers and transfers data to Equipment_Edit.
- *                3. Only after successful validation and transfer:
+ *                2. Writes Equipment data to RAWImport; validates headers and
+ *                   transfers to Equipment_Edit.
+ *                3. Writes Meters tab data to RAWImport_Meters; transfers to
+ *                   Meters_Edit.
+ *                4. Only after all successful validation and transfers:
  *                   - Extracts and stores FMX metadata zip entries as base64
  *                     in Script Properties.
  *                   - Creates a permanent Google Sheet copy for export use.
@@ -54,22 +57,26 @@ function manualProcessImport() {
 /**
  * Handles the server-side import logic called by the dialog.
  * Decodes Base64 input, converts Excel to values (via Drive API), or parses CSV.
- * For xlsx files, saves metadata and a Google Sheet copy for use during export,
- * but only after the import has been fully validated and transferred successfully.
- * @param {string} dataUrl - The base64 data URL of the file OR raw text.
+ *
+ * For xlsx files:
+ *   - Reads the Equipment tab and writes it to RAWImport, then transfers to Equipment_Edit.
+ *   - Reads the Meters tab and writes it to RAWImport_Meters, then transfers to Meters_Edit.
+ *   - Saves metadata and a Google Sheet copy only after all transfers succeed.
+ *
+ * @param {string} dataUrl  - The base64 data URL of the file OR raw text.
  * @param {string} fileType - The MIME type of the file.
  * @param {string} fileName - The name of the file (optional).
  * @return {string} Status message.
  */
 function importData(dataUrl, fileType, fileName) {
-  // Lifted to outer scope so they're accessible after the isExcel block
-  // for the saveExportTemplate call at the end of a successful import.
-  let blob = null;
+  // Lifted to outer scope so they're accessible in the finally/catch cleanup block
+  // and for the saveExportTemplate call at the end of a successful import.
+  let blob        = null;
   let convertedId = null;
-  let isExcel = false;
+  let isExcel     = false;
 
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss   = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.sheets.import);
 
     if (!sheet) {
@@ -87,13 +94,14 @@ function importData(dataUrl, fileType, fileName) {
       blob = Utilities.newBlob(dataUrl, 'text/csv', name);
     }
 
-    // 2. Determine File Type & Extract Data
+    // 2. Determine File Type
     isExcel = fileType.includes('excel') ||
               fileType.includes('spreadsheetml') ||
               name.endsWith('.xlsx') ||
               name.endsWith('.xls');
 
-    let data = [];
+    let equipmentData = [];
+    let metersData    = [];
 
     if (isExcel) {
       let tempFileId = null;
@@ -102,7 +110,7 @@ function importData(dataUrl, fileType, fileName) {
           throw new Error("Drive API Service not detected.");
         }
 
-        // Convert xlsx to Google Sheet to read the data
+        // Convert xlsx to Google Sheet to read all tabs
         const resource = {
           title: name,
           name: name,
@@ -114,14 +122,22 @@ function importData(dataUrl, fileType, fileName) {
           : Drive.Files.create(resource, blob);
         tempFileId = tempFile.id;
 
-        // Assign to outer scope immediately so the catch block can clean it
-        // up even if the subsequent openById or getSheets() calls throw.
+        // Assign to outer scope immediately so the catch block can clean it up
+        // even if the subsequent openById or sheet lookups throw.
         convertedId = tempFileId;
 
         const tempSs = SpreadsheetApp.openById(tempFileId);
-        data = tempSs.getSheets()[0].getDataRange().getValues();
 
-        // convertedId is intentionally NOT reassigned here — it's already set.
+        // ── Read Equipment tab (first sheet) ─────────────────────────────
+        equipmentData = tempSs.getSheets()[0].getDataRange().getValues();
+
+        // ── Read Meters tab by name ───────────────────────────────────────
+        const metersSheet = tempSs.getSheetByName("Meters");
+        if (metersSheet) {
+          metersData = metersSheet.getDataRange().getValues();
+        } else {
+          console.warn('No "Meters" tab found in the imported xlsx. RAWImport_Meters will not be updated.');
+        }
 
       } catch (err) {
         if (
@@ -133,30 +149,41 @@ function importData(dataUrl, fileType, fileName) {
         }
         throw new Error("XLSX Conversion Error: " + err.message);
       }
-      // Note: tempFileId is intentionally NOT trashed here.
-      // saveExportTemplate (called after successful transfer below) reuses it
+      // Note: tempFileId / convertedId is intentionally NOT trashed here.
+      // saveExportTemplate (called after successful transfers below) reuses it
       // via convertedId to make a permanent copy, then trashes it itself.
 
     } else {
+      // CSV / TXT path — Equipment data only; Meters not applicable
       const csvContent = blob.getDataAsString();
-      data = Utilities.parseCsv(csvContent);
+      equipmentData = Utilities.parseCsv(csvContent);
     }
 
-    if (!data || data.length === 0) {
+    if (!equipmentData || equipmentData.length === 0) {
       throw new Error("No data found in file.");
     }
 
-    // 3. Write Data to RAWImport Sheet
+    // 3. Write Equipment Data to RAWImport
     sheet.clear();
-    sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
+    sheet.getRange(1, 1, equipmentData.length, equipmentData[0].length).setValues(equipmentData);
 
-    // 4. Extract Headers (Dynamic Search)
+    // 4. Write Meters Data to RAWImport_Meters (if present)
+    if (metersData.length > 0) {
+      const metersImportSheet = ss.getSheetByName(CONFIG.sheets.metersImport);
+      if (!metersImportSheet) {
+        throw new Error(`Sheet "${CONFIG.sheets.metersImport}" not found. Please run setup.`);
+      }
+      metersImportSheet.clear();
+      metersImportSheet.getRange(1, 1, metersData.length, metersData[0].length).setValues(metersData);
+    }
+
+    // 5. Extract Equipment Headers (Dynamic Search)
     let headerRowIndex = -1;
-    const searchLimit = Math.min(10, data.length);
+    const searchLimit   = Math.min(10, equipmentData.length);
     const requiredHeader = CONFIG.mapping.required[0] || "ID*";
 
     for (let i = 0; i < searchLimit; i++) {
-      if (data[i].includes(requiredHeader)) {
+      if (equipmentData[i].includes(requiredHeader)) {
         headerRowIndex = i;
         break;
       }
@@ -166,22 +193,30 @@ function importData(dataUrl, fileType, fileName) {
       throw new Error(`Could not find required header '${requiredHeader}' in the first ${searchLimit} rows of the file.`);
     }
 
-    const headerRow = data[headerRowIndex];
+    const headerRow    = equipmentData[headerRowIndex];
     const cleanHeaders = headerRow.filter(h => h && h.toString().trim() !== "");
 
     // Update the available header options in the Data sheet
     updateDataSheetHeaders(cleanHeaders);
 
-    // 5. Transfer to Equipment_Edit based on current selection
-    const transferResult = processImportedData();
+    // 6. Transfer Equipment data to Equipment_Edit
+    const equipmentResult = processImportedData();
 
-    // 6. Save export template — only reached if all validation and transfer
+    // 7. Transfer Meters data to Meters_Edit (only if Meters data was found)
+    let metersResult = "";
+    if (metersData.length > 0) {
+      metersResult = processMetersData();
+    }
+
+    // 8. Save export template — only reached if all validation and transfers
     //    above succeeded. Saves metadata and Google Sheet copy for export use.
     if (isExcel) {
       saveExportTemplate(blob, convertedId);
     }
 
-    return `File "${name}" imported successfully.\n${transferResult}`;
+    const statusParts = [`File "${name}" imported successfully.`, equipmentResult];
+    if (metersResult) statusParts.push(metersResult);
+    return statusParts.join("\n");
 
   } catch (e) {
     // If something failed and we have a convertedId that saveExportTemplate
@@ -216,21 +251,19 @@ function importData(dataUrl, fileType, fileName) {
  *                                                   second Drive conversion).
  */
 function saveExportTemplate(blob, convertedId) {
-  const props = PropertiesService.getScriptProperties();
+  const props   = PropertiesService.getScriptProperties();
   const metaKeys = CONFIG.scriptProperties.metadataFiles;
 
   // ── 1. Extract metadata files from the xlsx zip ───────────────────────────
-  // Use a separate zipBlob so the original blob retains its correct Excel
-  // MIME type when saved to Drive below. copyBlob() is used to avoid mutating the original.
-  const zipBlob = blob.copyBlob().setContentType('application/zip');
+  const zipBlob   = blob.copyBlob().setContentType('application/zip');
   const zipEntries = Utilities.unzip(zipBlob);
-  const entryMap = {};
+  const entryMap  = {};
   zipEntries.forEach(function(entry) {
     entryMap[entry.getName()] = entry;
   });
 
   const missingFiles = [];
-  const metaToStore = {};
+  const metaToStore  = {};
 
   Object.keys(metaKeys).forEach(function(zipPath) {
     const propKey = metaKeys[zipPath];
@@ -249,14 +282,11 @@ function saveExportTemplate(blob, convertedId) {
       '. The exported file may be rejected by FMX. ' +
       'Try re-downloading the template from FMX and importing again.'
     );
-    // Delete stale properties so old metadata from a previous import
-    // doesn't get mixed with the new one during export.
     missingFiles.forEach(function(zipPath) {
       props.deleteProperty(metaKeys[zipPath]);
     });
   }
 
-  // Store all found metadata in Script Properties
   Object.keys(metaToStore).forEach(function(propKey) {
     props.setProperty(propKey, metaToStore[propKey]);
   });
@@ -274,15 +304,15 @@ function saveExportTemplate(blob, convertedId) {
     catch (e) { console.warn('Could not trash previous sheet template: ' + e.message); }
   }
 
-  // ── 3. Save a fresh xlsx copy to Drive (for audit / future metadata reads) 
+  // ── 3. Save a fresh xlsx copy to Drive (for audit / future metadata reads)
   const xlsxFile = DriveApp.createFile(blob.setName('FMX_Export_Template.xlsx'));
   props.setProperty(CONFIG.scriptProperties.templateFileId, xlsxFile.getId());
 
-  // ── 4. Make a permanent Google Sheet copy from the already-converted file ─
+  // ── 4. Make a permanent Google Sheet copy from the already-converted file
   const sheetCopy = DriveApp.getFileById(convertedId).makeCopy('FMX_Export_Template_Sheet');
   props.setProperty(CONFIG.scriptProperties.templateSheetId, sheetCopy.getId());
 
-  // ── 5. Trash the temporary converted file now that we have a permanent copy 
+  // ── 5. Trash the temporary converted file now that we have a permanent copy
   try {
     DriveApp.getFileById(convertedId).setTrashed(true);
   } catch (e) {
@@ -295,7 +325,7 @@ function saveExportTemplate(blob, convertedId) {
  * @param {Array<string>} headers - The array of headers extracted from the imported file.
  */
 function updateDataSheetHeaders(headers) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss        = SpreadsheetApp.getActiveSpreadsheet();
   const dataSheet = ss.getSheetByName(CONFIG.sheets.data);
 
   if (!dataSheet) {
@@ -306,10 +336,9 @@ function updateDataSheetHeaders(headers) {
   const lastCol = dataSheet.getLastColumn();
   if (lastCol === 0) return;
 
-  const sheetHeaders = dataSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const sheetHeaders     = dataSheet.getRange(1, 1, 1, lastCol).getValues()[0];
   const targetHeaderName = CONFIG.namedRanges.Import_Headers;
-
-  const colIndex = sheetHeaders.indexOf(targetHeaderName);
+  const colIndex         = sheetHeaders.indexOf(targetHeaderName);
 
   if (colIndex === -1) {
     console.error(`Column header "${targetHeaderName}" not found in ${CONFIG.sheets.data} sheet.`);
