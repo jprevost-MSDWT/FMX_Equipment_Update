@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 5.00
 Filename: Import.gs
-File Version: 3.09
+File Version: 3.10
 Chat link: [Insert Link]
 */
 
@@ -114,12 +114,14 @@ function importData(dataUrl, fileType, fileName) {
           : Drive.Files.create(resource, blob);
         tempFileId = tempFile.id;
 
+        // Assign to outer scope immediately so the catch block can clean it
+        // up even if the subsequent openById or getSheets() calls throw.
+        convertedId = tempFileId;
+
         const tempSs = SpreadsheetApp.openById(tempFileId);
         data = tempSs.getSheets()[0].getDataRange().getValues();
 
-        // Store the converted ID at outer scope — used by saveExportTemplate
-        // at the end of the function after successful validation.
-        convertedId = tempFileId;
+        // convertedId is intentionally NOT reassigned here — it's already set.
 
       } catch (err) {
         if (
@@ -247,6 +249,11 @@ function saveExportTemplate(blob, convertedId) {
       '. The exported file may be rejected by FMX. ' +
       'Try re-downloading the template from FMX and importing again.'
     );
+    // Delete stale properties so old metadata from a previous import
+    // doesn't get mixed with the new one during export.
+    missingFiles.forEach(function(zipPath) {
+      props.deleteProperty(metaKeys[zipPath]);
+    });
   }
 
   // Store all found metadata in Script Properties
