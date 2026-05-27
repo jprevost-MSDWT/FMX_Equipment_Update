@@ -221,8 +221,8 @@ function saveExportTemplate(blob, convertedId) {
 
   // ── 1. Extract metadata files from the xlsx zip ───────────────────────────
   // Use a separate zipBlob so the original blob retains its correct Excel
-  // MIME type when saved to Drive below. setContentType() returns a new blob.
-  const zipBlob = blob.setContentType('application/zip');
+  // MIME type when saved to Drive below. copyBlob() is used to avoid mutating the original.
+  const zipBlob = blob.copyBlob().setContentType('application/zip');
   const zipEntries = Utilities.unzip(zipBlob);
   const entryMap = {};
   zipEntries.forEach(function(entry) {
