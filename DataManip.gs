@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 6.00
 Filename: DataManip.gs
-File Version: 6.01
+File Version: 6.02
 Chat link: [Insert Link]
 */
 
@@ -101,11 +101,12 @@ function processMetersData() {
     const sourceData = sourceSheet.getDataRange().getValues();
     if (sourceData.length < 1) throw new Error("RAWImport_Meters sheet is empty.");
 
-    // Locate header row using the Meters required marker
+    // Locate header row using the Meters required marker.
+    // Uses some()+trim() for robustness against leading/trailing whitespace in cells.
     const requiredMarker = CONFIG.mapping.metersRequired[0];
     let headerRowIndex = -1;
     for (let i = 0; i < Math.min(CONFIG.mapping.headerSearchLimit, sourceData.length); i++) {
-      if (sourceData[i].includes(requiredMarker)) {
+      if (sourceData[i].some(cell => cell && cell.toString().trim() === requiredMarker)) {
         headerRowIndex = i;
         break;
       }
@@ -180,13 +181,13 @@ function runExportProcess() {
   const importSheet      = ss.getSheetByName(CONFIG.sheets.import);
   const editSheet        = ss.getSheetByName(CONFIG.sheets.edit);
   const metersEditSheet  = ss.getSheetByName(CONFIG.sheets.metersEdit);
-  const metersExportSheet = ss.getSheetByName("Meters");
+  const metersExportSheet = ss.getSheetByName(CONFIG.sheets.metersExport);
 
   if (!exportSheet || !importSheet || !editSheet) {
     throw new Error("One or more required Equipment sheets are missing. Please verify sheet names.");
   }
   if (!metersEditSheet || !metersExportSheet) {
-    throw new Error("One or more required Meters sheets are missing (Meters_Edit or Meters). Please verify sheet names.");
+    throw new Error("One or more required Meters sheets are missing (" + CONFIG.sheets.metersEdit + " or " + CONFIG.sheets.metersExport + "). Please verify sheet names.");
   }
 
   // ── EQUIPMENT ITEMS ───────────────────────────────────────────────────────

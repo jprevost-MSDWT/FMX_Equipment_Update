@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 6.00
 Filename: BaseConfig.gs
-File Version: 6.01
+File Version: 6.02
 Chat link: [Insert Link]
 */
 
@@ -17,6 +17,7 @@ const CONFIG = {
     data: "Data",
     edit: "Equipment_Edit",
     metersEdit: "Meters_Edit",
+    metersExport: "Meters",      // Do NOT change. Must match Meters tab from FMX
     export: "Equipment Items"    // Do NOT change. Must match bulk sheet from FMX
   },
   namedRanges: {
