@@ -125,7 +125,7 @@ Chat link: [Insert Link]
         showToast("Running export prep...", false);
         google.script.run
           .withSuccessHandler(function() { 
-            showToast("Export prep complete!", false); 
+            showToast("Download ready!", false); 
             google.script.run.withFailureHandler(showError).showDownloadDialog();
           })
           .withFailureHandler(showError)
