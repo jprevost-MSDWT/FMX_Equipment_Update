@@ -176,8 +176,8 @@ function importData(dataUrl, fileType, fileName) {
     // [[""]] (length 1), which would cause a false positive. Instead, confirm
     // that the required meters header is actually present somewhere in the data.
     const requiredMeterHeader = CONFIG.mapping.metersRequired[0];
-    const hasMetersData = metersData.some(
-      row => row.some(cell => cell && cell.toString().trim() === requiredMeterHeader)
+    const hasMetersData = metersData.slice(0, CONFIG.mapping.headerSearchLimit || 20).some(
+      row => row.some(cell => cell != null && cell.toString().trim() === requiredMeterHeader)
     );
 
     // 5. Write Meters Data to RAWImport_Meters, or clear it if no valid meters data is present.
