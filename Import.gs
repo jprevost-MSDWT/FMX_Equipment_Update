@@ -129,9 +129,13 @@ function importData(dataUrl, fileType, fileName) {
         const tempSs = SpreadsheetApp.openById(tempFileId);
 
         // ── Read Equipment tab by name ────────────────────────────────────
-        const equipmentSheet = tempSs.getSheetByName(CONFIG.sheets.export);
+        let equipmentSheet = tempSs.getSheetByName(CONFIG.sheets.export);
         if (!equipmentSheet) {
-          throw new Error(`The required sheet "${CONFIG.sheets.export}" was not found in the imported file.`);
+          const sheets = tempSs.getSheets();
+          equipmentSheet = sheets.find(s => s.getName().toLowerCase().trim() === CONFIG.sheets.export.toLowerCase().trim()) || sheets[0];
+        }
+        if (!equipmentSheet) {
+          throw new Error("The required sheet \"" + CONFIG.sheets.export + "\" was not found in the imported file.");
         }
         equipmentData = equipmentSheet.getDataRange().getValues();
 
