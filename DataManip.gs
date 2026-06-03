@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 6.00
 Filename: DataManip.gs
-File Version: 6.02
+File Version: 6.05
 Chat link: [Insert Link]
 */
 
@@ -98,15 +98,16 @@ function processMetersData() {
       throw new Error("Source (RAWImport_Meters) or Target (Meters_Edit) sheet is missing.");
     }
 
+    const sourceLastRow = sourceSheet.getLastRow();
+    if (sourceLastRow === 0) throw new Error("RAWImport_Meters sheet is empty.");
     const sourceData = sourceSheet.getDataRange().getValues();
-    if (sourceData.length < 1) throw new Error("RAWImport_Meters sheet is empty.");
 
     // Locate header row using the Meters required marker.
     // Uses some()+trim() for robustness against leading/trailing whitespace in cells.
     const requiredMarker = CONFIG.mapping.metersRequired[0];
     let headerRowIndex = -1;
     for (let i = 0; i < Math.min(CONFIG.mapping.headerSearchLimit, sourceData.length); i++) {
-      if (sourceData[i].some(cell => cell && cell.toString().trim() === requiredMarker)) {
+      if (sourceData[i].some(cell => cell != null && cell.toString().trim() === requiredMarker)) {
         headerRowIndex = i;
         break;
       }
@@ -122,6 +123,14 @@ function processMetersData() {
     const finalOutput = [headerRow, ...dataRows];
 
     targetSheet.clearContents();
+    const targetMaxRows = targetSheet.getMaxRows();
+    const targetMaxCols = targetSheet.getMaxColumns();
+    if (targetMaxRows < finalOutput.length) {
+      targetSheet.insertRowsAfter(targetMaxRows, finalOutput.length - targetMaxRows);
+    }
+    if (targetMaxCols < headerRow.length) {
+      targetSheet.insertColumnsAfter(targetMaxCols, headerRow.length - targetMaxCols);
+    }
     targetSheet.getRange(1, 1, finalOutput.length, headerRow.length).setValues(finalOutput);
 
     return `Success: Transferred ${dataRows.length} rows and ${headerRow.length} columns to ${CONFIG.sheets.metersEdit}.`;
@@ -187,7 +196,7 @@ function runExportProcess() {
     throw new Error("One or more required Equipment sheets are missing. Please verify sheet names.");
   }
   if (!metersEditSheet || !metersExportSheet) {
-    throw new Error("One or more required Meters sheets are missing (" + CONFIG.sheets.metersEdit + " or " + CONFIG.sheets.metersExport + "). Please verify sheet names.");
+    throw new Error(`One or more required Meters sheets are missing (${CONFIG.sheets.metersEdit} or ${CONFIG.sheets.metersExport}). Please verify sheet names.`);
   }
 
   // ── EQUIPMENT ITEMS ───────────────────────────────────────────────────────
@@ -273,13 +282,25 @@ function runExportProcess() {
 
   // ── METERS ────────────────────────────────────────────────────────────────
 
-  // Direct copy: Meters_Edit → Meters export sheet (no RAWImport merge needed)
-  const metersData = metersEditSheet.getDataRange().getValues();
+  // Direct copy: Meters_Edit → Meters export sheet (no RAWImport merge needed).
+  // Use getLastRow/getLastColumn to avoid the [[""]] false-positive from getDataRange()
+  // on an empty sheet, and resize the export sheet if needed before writing.
+  const metersLastRow = metersEditSheet.getLastRow();
+  const metersLastCol = metersEditSheet.getLastColumn();
 
   metersExportSheet.clearContents();
 
-  if (metersData.length > 0 && metersData[0].length > 0) {
-    metersExportSheet.getRange(1, 1, metersData.length, metersData[0].length).setValues(metersData);
+  if (metersLastRow > 0 && metersLastCol > 0) {
+    const metersData = metersEditSheet.getRange(1, 1, metersLastRow, metersLastCol).getValues();
+    const metersMaxRows = metersExportSheet.getMaxRows();
+    const metersMaxCols = metersExportSheet.getMaxColumns();
+    if (metersMaxRows < metersLastRow) {
+      metersExportSheet.insertRowsAfter(metersMaxRows, metersLastRow - metersMaxRows);
+    }
+    if (metersMaxCols < metersLastCol) {
+      metersExportSheet.insertColumnsAfter(metersMaxCols, metersLastCol - metersMaxCols);
+    }
+    metersExportSheet.getRange(1, 1, metersLastRow, metersLastCol).setValues(metersData);
   }
 }
 

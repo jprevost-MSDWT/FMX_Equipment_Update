@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 6.00
 Filename: Import.gs
-File Version: 6.03
+File Version: 6.05
 Chat link: [Insert Link]
 */
 
@@ -128,15 +128,23 @@ function importData(dataUrl, fileType, fileName) {
 
         const tempSs = SpreadsheetApp.openById(tempFileId);
 
-        // ── Read Equipment tab (first sheet) ─────────────────────────────
-        equipmentData = tempSs.getSheets()[0].getDataRange().getValues();
+        // ── Read Equipment tab by name ────────────────────────────────────
+        let equipmentSheet = tempSs.getSheetByName(CONFIG.sheets.export);
+        if (!equipmentSheet) {
+          const sheets = tempSs.getSheets();
+          equipmentSheet = sheets.find(s => s.getName().toLowerCase().trim() === CONFIG.sheets.export.toLowerCase().trim()) || sheets[0];
+        }
+        if (!equipmentSheet) {
+          throw new Error("The required sheet \"" + CONFIG.sheets.export + "\" was not found in the imported file.");
+        }
+        equipmentData = equipmentSheet.getDataRange().getValues();
 
         // ── Read Meters tab by name ───────────────────────────────────────
         const metersSheet = tempSs.getSheetByName(CONFIG.sheets.metersExport);
         if (metersSheet) {
           metersData = metersSheet.getDataRange().getValues();
         } else {
-          console.warn('No "' + CONFIG.sheets.metersExport + '" tab found in the imported xlsx. RAWImport_Meters will not be updated.');
+          console.warn(`No "${CONFIG.sheets.metersExport}" tab found in the imported xlsx. RAWImport_Meters will not be updated.`);
         }
 
       } catch (err) {
@@ -181,9 +189,17 @@ function importData(dataUrl, fileType, fileName) {
     const metersImportSheet = ss.getSheetByName(CONFIG.sheets.metersImport);
     if (hasMetersData) {
       if (!metersImportSheet) {
-        throw new Error("Sheet " + CONFIG.sheets.metersImport + " not found. Please run setup.");
+        throw new Error(`Sheet ${CONFIG.sheets.metersImport} not found. Please run setup.`);
       }
       metersImportSheet.clear();
+      const miMaxRows = metersImportSheet.getMaxRows();
+      const miMaxCols = metersImportSheet.getMaxColumns();
+      if (miMaxRows < metersData.length) {
+        metersImportSheet.insertRowsAfter(miMaxRows, metersData.length - miMaxRows);
+      }
+      if (miMaxCols < metersData[0].length) {
+        metersImportSheet.insertColumnsAfter(miMaxCols, metersData[0].length - miMaxCols);
+      }
       metersImportSheet.getRange(1, 1, metersData.length, metersData[0].length).setValues(metersData);
     } else if (metersImportSheet) {
       metersImportSheet.clear();
@@ -196,7 +212,7 @@ function importData(dataUrl, fileType, fileName) {
     const requiredHeader = CONFIG.mapping.required[0] || "ID*";
 
     for (let i = 0; i < searchLimit; i++) {
-      if (equipmentData[i].some(cell => cell && cell.toString().trim() === requiredHeader)) {
+      if (equipmentData[i].some(cell => cell != null && cell.toString().trim() === requiredHeader)) {
         headerRowIndex = i;
         break;
       }
