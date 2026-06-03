@@ -1,19 +1,21 @@
 /*
 Project Name: FMX Equipment Import non-Gem
-Project Version: 5.00
+Project Version: 6.00
 Filename: DataManip.gs
-File Version: 3.07
+File Version: 6.05
 Chat link: [Insert Link]
 */
 
 /**
  * @file DataManip.gs
- * @description Handles data manipulation, header mapping, and transfer from RAWImport to Equipment_Edit.
+ * @description Handles data manipulation, header mapping, and transfer from
+ *              RAWImport → Equipment_Edit and RAWImport_Meters → Meters_Edit.
  */
 
 /**
  * Orchestrates the data transfer from RAWImport to Equipment_Edit based on Selected_Headers.
  * This is the primary function triggered after a successful import.
+ * @return {string} Status message describing rows and columns transferred.
  */
 function processImportedData() {
   try {
@@ -80,6 +82,66 @@ function processImportedData() {
 }
 
 /**
+ * Transfers all columns from RAWImport_Meters to Meters_Edit.
+ * No user-configurable header selection — all columns are copied as-is.
+ * The header row is located by searching for the Meters required marker
+ * defined in CONFIG.mapping.metersRequired.
+ * @return {string} Status message describing rows and columns transferred.
+ */
+function processMetersData() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sourceSheet = ss.getSheetByName(CONFIG.sheets.metersImport);
+    const targetSheet = ss.getSheetByName(CONFIG.sheets.metersEdit);
+
+    if (!sourceSheet || !targetSheet) {
+      throw new Error("Source (RAWImport_Meters) or Target (Meters_Edit) sheet is missing.");
+    }
+
+    const sourceLastRow = sourceSheet.getLastRow();
+    if (sourceLastRow === 0) throw new Error("RAWImport_Meters sheet is empty.");
+    const sourceData = sourceSheet.getDataRange().getValues();
+
+    // Locate header row using the Meters required marker.
+    // Uses some()+trim() for robustness against leading/trailing whitespace in cells.
+    const requiredMarker = CONFIG.mapping.metersRequired[0];
+    let headerRowIndex = -1;
+    for (let i = 0; i < Math.min(CONFIG.mapping.headerSearchLimit, sourceData.length); i++) {
+      if (sourceData[i].some(cell => cell != null && cell.toString().trim() === requiredMarker)) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+
+    if (headerRowIndex === -1) {
+      throw new Error(`Could not find the header row in RAWImport_Meters (searched for "${requiredMarker}").`);
+    }
+
+    // All columns are used — no filtering needed
+    const headerRow  = sourceData[headerRowIndex].map(h => h ? h.toString().trim() : "");
+    const dataRows   = sourceData.slice(headerRowIndex + 1);
+    const finalOutput = [headerRow, ...dataRows];
+
+    targetSheet.clearContents();
+    const targetMaxRows = targetSheet.getMaxRows();
+    const targetMaxCols = targetSheet.getMaxColumns();
+    if (targetMaxRows < finalOutput.length) {
+      targetSheet.insertRowsAfter(targetMaxRows, finalOutput.length - targetMaxRows);
+    }
+    if (targetMaxCols < headerRow.length) {
+      targetSheet.insertColumnsAfter(targetMaxCols, headerRow.length - targetMaxCols);
+    }
+    targetSheet.getRange(1, 1, finalOutput.length, headerRow.length).setValues(finalOutput);
+
+    return `Success: Transferred ${dataRows.length} rows and ${headerRow.length} columns to ${CONFIG.sheets.metersEdit}.`;
+
+  } catch (e) {
+    console.error("Meters Data Transfer Error: " + e.message);
+    throw e;
+  }
+}
+
+/**
  * Retrieves the list of selected headers from the Named Range.
  * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss - The active spreadsheet.
  * @return {string[]} Array of header names.
@@ -110,35 +172,36 @@ function saveAndProcessHeaders(selectedHeaders) {
 /**
  * Main controller function to execute the export process.
  *
- * Merges data from two sources into the export sheet ("Equipment Items"):
- *   1. RAWImport  — the full original dataset (all columns, all rows).
- *   2. Equipment_Edit — the user-edited subset (selected columns only).
- *
- * Merge strategy (per row, per column):
- *   - Rows are matched between the two sheets using the ID* column as the key.
+ * Equipment Items merge strategy (per row, per column):
+ *   - Rows are matched between RAWImport and Equipment_Edit using the ID* column as the key.
  *   - For matched rows, Equipment_Edit values take priority over RAWImport values.
- *     Any column present in RAWImport but absent from Equipment_Edit is filled
- *     from RAWImport, preserving unedited data.
- *   - New items (blank or missing ID* in Equipment_Edit) have no RAWImport
- *     counterpart. They are exported as-is using only Equipment_Edit values;
- *     any column not present in Equipment_Edit will be blank.
+ *   - New items (blank or missing ID* in Equipment_Edit) are exported as-is.
+ *
+ * Meters export strategy:
+ *   - Meters_Edit is written directly to the "Meters" export sheet.
+ *   - All columns are included; no RAWImport merge is performed.
  *
  * @return {void}
  */
 function runExportProcess() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  const exportSheet = ss.getSheetByName(CONFIG.sheets.export);
-  const importSheet = ss.getSheetByName(CONFIG.sheets.import);
-  const editSheet   = ss.getSheetByName(CONFIG.sheets.edit);
+  const exportSheet      = ss.getSheetByName(CONFIG.sheets.export);
+  const importSheet      = ss.getSheetByName(CONFIG.sheets.import);
+  const editSheet        = ss.getSheetByName(CONFIG.sheets.edit);
+  const metersEditSheet  = ss.getSheetByName(CONFIG.sheets.metersEdit);
+  const metersExportSheet = ss.getSheetByName(CONFIG.sheets.metersExport);
 
   if (!exportSheet || !importSheet || !editSheet) {
-    throw new Error("One or more required sheets are missing. Please verify sheet names.");
+    throw new Error("One or more required Equipment sheets are missing. Please verify sheet names.");
+  }
+  if (!metersEditSheet || !metersExportSheet) {
+    throw new Error(`One or more required Meters sheets are missing (${CONFIG.sheets.metersEdit} or ${CONFIG.sheets.metersExport}). Please verify sheet names.`);
   }
 
-  // ── 1. Validate source before touching the export sheet ──────────────────
-  // Clearing is deferred until after validation to prevent accidental data
-  // loss if the source sheet fails its checks.
+  // ── EQUIPMENT ITEMS ───────────────────────────────────────────────────────
+
+  // 1. Validate source before touching the export sheet
   const importLastCol = importSheet.getLastColumn();
   const importLastRow = importSheet.getLastRow();
 
@@ -151,27 +214,22 @@ function runExportProcess() {
     );
   }
 
-  // ── 2. Clear export sheet and copy header rows from RAWImport ────────────
+  // 2. Clear export sheet and copy header rows from RAWImport
   exportSheet.clear();
 
   importSheet
     .getRange(1, 1, CONFIG.rows.importHeaderCount, importLastCol)
     .copyTo(exportSheet.getRange(1, 1));
 
-  // ── 3. Resolve column headers ────────────────────────────────────────────
-
-  // RAWImport data rows (everything below the header block).
+  // 3. Resolve column headers
   const rawData      = importSheet.getDataRange().getValues();
   const rawHeaderRow = rawData[CONFIG.rows.importHeaderCount - 1]
     .map(h => h ? h.toString().trim() : "");
   const rawDataRows  = rawData.slice(CONFIG.rows.importHeaderCount);
 
-  // Target (export) headers — since we just copied them from RAWImport, use
-  // the in-memory rawHeaderRow directly to avoid a redundant API read.
   const targetHeaders = rawHeaderRow;
   if (targetHeaders.length === 0) return;
 
-  // Equipment_Edit headers and data rows.
   const editData     = editSheet.getDataRange().getValues();
   if (editData.length <= CONFIG.rows.editHeaderIndex) return;
 
@@ -179,11 +237,7 @@ function runExportProcess() {
     .map(h => h ? h.toString().trim() : "");
   const editDataRows = editData.slice(CONFIG.rows.editHeaderIndex);
 
-  // ── 4. Build a lookup map: ID* → RAWImport row (array of values) ─────────
-  // Rows with a blank/missing ID* are skipped — they cannot be matched.
-  // The guard on rawIdColIndex ensures we don't attempt a lookup if ID* is
-  // somehow absent from RAWImport; rawById stays empty and new items pass
-  // through without error.
+  // 4. Build a lookup map: ID* → RAWImport row
   const rawIdColIndex = rawHeaderRow.indexOf(CONFIG.mapping.required[0]);
   const rawById       = {};
 
@@ -196,40 +250,57 @@ function runExportProcess() {
     });
   }
 
-  // ── 5. Resolve column mappings ───────────────────────────────────────────
-  // For each target column, note which index to use in RAWImport and Equipment_Edit.
+  // 5. Resolve column mappings
   const editIdColIndex = editHeaders.indexOf(CONFIG.mapping.required[0]);
-
   const colMapRaw  = targetHeaders.map(h => rawHeaderRow.indexOf(h));
   const colMapEdit = targetHeaders.map(h => editHeaders.indexOf(h));
 
-  // ── 6. Build merged output rows ──────────────────────────────────────────
+  // 6. Build merged output rows
   const outputData = editDataRows.map(editRow => {
     const itemId = (editIdColIndex !== -1 && editRow[editIdColIndex] !== undefined)
       ? editRow[editIdColIndex].toString().trim()
       : "";
 
-    // Look up the matching RAWImport row (null for new items with no ID*).
     const rawRow = (itemId !== "" && rawById[itemId]) ? rawById[itemId] : null;
 
     return targetHeaders.map((_, colIdx) => {
       const editVal = colMapEdit[colIdx] !== -1 ? editRow[colMapEdit[colIdx]] : undefined;
       const rawVal  = (rawRow && colMapRaw[colIdx] !== -1) ? rawRow[colMapRaw[colIdx]] : "";
 
-      // Equipment_Edit takes priority; fall back to RAWImport for unedited columns.
-      // A cell is considered "present" if its column exists in Equipment_Edit,
-      // even if the value itself happens to be blank (intentional clear by user).
       return colMapEdit[colIdx] !== -1 ? editVal : rawVal;
     });
   });
 
-  // ── 7. Write merged data to export sheet ─────────────────────────────────
+  // 7. Write merged Equipment data to export sheet
   if (outputData.length > 0 && outputData[0].length > 0) {
     exportSheet.getRange(
       CONFIG.rows.importHeaderCount + 1, 1,
       outputData.length,
       outputData[0].length
     ).setValues(outputData);
+  }
+
+  // ── METERS ────────────────────────────────────────────────────────────────
+
+  // Direct copy: Meters_Edit → Meters export sheet (no RAWImport merge needed).
+  // Use getLastRow/getLastColumn to avoid the [[""]] false-positive from getDataRange()
+  // on an empty sheet, and resize the export sheet if needed before writing.
+  const metersLastRow = metersEditSheet.getLastRow();
+  const metersLastCol = metersEditSheet.getLastColumn();
+
+  metersExportSheet.clearContents();
+
+  if (metersLastRow > 0 && metersLastCol > 0) {
+    const metersData = metersEditSheet.getRange(1, 1, metersLastRow, metersLastCol).getValues();
+    const metersMaxRows = metersExportSheet.getMaxRows();
+    const metersMaxCols = metersExportSheet.getMaxColumns();
+    if (metersMaxRows < metersLastRow) {
+      metersExportSheet.insertRowsAfter(metersMaxRows, metersLastRow - metersMaxRows);
+    }
+    if (metersMaxCols < metersLastCol) {
+      metersExportSheet.insertColumnsAfter(metersMaxCols, metersLastCol - metersMaxCols);
+    }
+    metersExportSheet.getRange(1, 1, metersLastRow, metersLastCol).setValues(metersData);
   }
 }
 

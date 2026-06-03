@@ -1,8 +1,8 @@
 /*
 Project Name: FMX Equipment Import non-Gem
-Project Version: 5.00
+Project Version: 6.00
 Filename: BaseConfig.gs
-File Version: 3.13
+File Version: 6.02
 Chat link: [Insert Link]
 */
 
@@ -12,10 +12,13 @@ Chat link: [Insert Link]
  */
 const CONFIG = {
   sheets: {
-    import: "RAWImport",    // Do NOT change. Also used in HTML
+    import: "RAWImport",         // Do NOT change. Also used in HTML
+    metersImport: "RAWImport_Meters",
     data: "Data",
     edit: "Equipment_Edit",
-    export: "Equipment Items"  //Do NOT change. Must match bulk sheet from FMX
+    metersEdit: "Meters_Edit",
+    metersExport: "Meters",      // Do NOT change. Must match Meters tab from FMX
+    export: "Equipment Items"    // Do NOT change. Must match bulk sheet from FMX
   },
   namedRanges: {
     Import_Headers: "Import_Headers",
@@ -35,7 +38,8 @@ const CONFIG = {
   },
   mapping: {
     headerSearchLimit: 20,
-    required: ["ID*", "Tag*", "Type*", "Building*"]
+    required: ["ID*", "Tag*", "Type*", "Building*"],
+    metersRequired: ["Equipment item ID*"]
   },
   rows: {
     importHeaderCount: 3,   // Number of header rows to copy from RAWImport to export sheet
@@ -109,6 +113,7 @@ function showSidebar() {
 
 /**
  * Verifies that all sheets defined in CONFIG exist.
+ * Any sheet name found in CONFIG.sheets that does not exist will be created.
  */
 function VerifySheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -248,4 +253,5 @@ function saveSelectedHeaders(selectedHeaders) {
     sheet.getRange(2, colNumber, output.length, 1).setValues(output);
   }
 }
+
 // EOF: BaseConfig.gs
