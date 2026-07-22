@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 6.00
 Filename: DataManip.gs
-File Version: 6.05
+File Version: 6.06
 Chat link: [Insert Link]
 */
 
@@ -53,7 +53,12 @@ function processImportedData() {
     }
 
     const sourceHeaders = sourceData[headerRowIndex].map(h => h ? h.toString().trim() : "");
-    const dataRows = sourceData.slice(headerRowIndex + 1);
+
+    // Skip any fully-blank spacer/format rows immediately following the header
+    // row (common in FMX bulk export templates) so they don't get written into
+    // Equipment_Edit as a phantom blank record.
+    const dataRows = sourceData.slice(headerRowIndex + 1)
+      .filter(row => row.some(cell => cell !== "" && cell !== null && cell !== undefined));
 
     // 3. Map Selected Headers to Source Column Indices
     const colIndices = selectedHeaders.map(header => {
@@ -117,9 +122,11 @@ function processMetersData() {
       throw new Error(`Could not find the header row in RAWImport_Meters (searched for "${requiredMarker}").`);
     }
 
-    // All columns are used — no filtering needed
+    // All columns are used — no filtering needed, other than dropping any
+    // fully-blank spacer rows immediately following the header row.
     const headerRow  = sourceData[headerRowIndex].map(h => h ? h.toString().trim() : "");
-    const dataRows   = sourceData.slice(headerRowIndex + 1);
+    const dataRows   = sourceData.slice(headerRowIndex + 1)
+      .filter(row => row.some(cell => cell !== "" && cell !== null && cell !== undefined));
     const finalOutput = [headerRow, ...dataRows];
 
     targetSheet.clearContents();
@@ -207,25 +214,50 @@ function runExportProcess() {
 
   if (importLastCol === 0) return; // Nothing to export
 
-  if (importLastRow < CONFIG.rows.importHeaderCount) {
+  // 1a. Locate the header row in RAWImport dynamically — the same way
+  //     processImportedData() does — instead of assuming it always sits at a
+  //     fixed row. This keeps the export in sync with the import even if the
+  //     source file has extra/missing spacer rows above the header.
+  const rawData = importSheet.getDataRange().getValues();
+  const requiredMarker = CONFIG.mapping.required[0];
+  let headerRowIndex = -1;
+  for (let i = 0; i < Math.min(CONFIG.mapping.headerSearchLimit, rawData.length); i++) {
+    if (rawData[i].includes(requiredMarker)) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+
+  if (headerRowIndex === -1) {
+    throw new Error(`Could not find the header row in RAWImport (searched for ${requiredMarker}).`);
+  }
+
+  const headerRowCount = headerRowIndex + 1; // 1-indexed count of rows to preserve as the header block
+
+  if (importLastRow < headerRowCount) {
     throw new Error(
       `The source sheet "${CONFIG.sheets.import}" does not have the required ` +
-      `${CONFIG.rows.importHeaderCount} header rows.`
+      `header row(s) (expected to find "${requiredMarker}" within the first ` +
+      `${CONFIG.mapping.headerSearchLimit} rows).`
     );
   }
 
-  // 2. Clear export sheet and copy header rows from RAWImport
+  // 2. Clear export sheet and copy the header block (all rows up to and
+  //    including the detected header row) from RAWImport, preserving the
+  //    exact structure FMX expects.
   exportSheet.clear();
 
   importSheet
-    .getRange(1, 1, CONFIG.rows.importHeaderCount, importLastCol)
+    .getRange(1, 1, headerRowCount, importLastCol)
     .copyTo(exportSheet.getRange(1, 1));
 
   // 3. Resolve column headers
-  const rawData      = importSheet.getDataRange().getValues();
-  const rawHeaderRow = rawData[CONFIG.rows.importHeaderCount - 1]
-    .map(h => h ? h.toString().trim() : "");
-  const rawDataRows  = rawData.slice(CONFIG.rows.importHeaderCount);
+  const rawHeaderRow = rawData[headerRowIndex].map(h => h ? h.toString().trim() : "");
+
+  // Drop any fully-blank spacer rows so they can never be matched/merged in
+  // as phantom records, and so row alignment can't drift from Equipment_Edit.
+  const rawDataRows = rawData.slice(headerRowIndex + 1)
+    .filter(row => row.some(cell => cell !== "" && cell !== null && cell !== undefined));
 
   const targetHeaders = rawHeaderRow;
   if (targetHeaders.length === 0) return;
@@ -235,7 +267,11 @@ function runExportProcess() {
 
   const editHeaders  = editData[CONFIG.rows.editHeaderIndex - 1]
     .map(h => h ? h.toString().trim() : "");
-  const editDataRows = editData.slice(CONFIG.rows.editHeaderIndex);
+
+  // Same blank-row guard on the Equipment_Edit side, in case a stray blank
+  // row ever ends up there (e.g. from a manual edit).
+  const editDataRows = editData.slice(CONFIG.rows.editHeaderIndex)
+    .filter(row => row.some(cell => cell !== "" && cell !== null && cell !== undefined));
 
   // 4. Build a lookup map: ID* → RAWImport row
   const rawIdColIndex = rawHeaderRow.indexOf(CONFIG.mapping.required[0]);
@@ -274,7 +310,7 @@ function runExportProcess() {
   // 7. Write merged Equipment data to export sheet
   if (outputData.length > 0 && outputData[0].length > 0) {
     exportSheet.getRange(
-      CONFIG.rows.importHeaderCount + 1, 1,
+      headerRowCount + 1, 1,
       outputData.length,
       outputData[0].length
     ).setValues(outputData);
