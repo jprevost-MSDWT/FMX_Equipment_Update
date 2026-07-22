@@ -2,7 +2,7 @@
 Project Name: FMX Equipment Import non-Gem
 Project Version: 6.00
 Filename: DataManip.gs
-File Version: 6.06
+File Version: 6.07
 Chat link: [Insert Link]
 */
 
@@ -232,9 +232,24 @@ function runExportProcess() {
     throw new Error(`Could not find the header row in RAWImport (searched for ${requiredMarker}).`);
   }
 
-  const headerRowCount = headerRowIndex + 1; // 1-indexed count of rows to preserve as the header block
+  // FMX's exported template includes a blank spacer row immediately after the
+  // header row before the actual data begins (e.g. header on row 3, blank row
+  // 4, data starting row 5). That spacer row is part of the fixed structure
+  // FMX expects back — it must be preserved in the export, but excluded from
+  // the ID*-based data matching below. Detect how many such blank rows follow
+  // the header so both the copied header block and the data write offset
+  // account for them.
+  let dataStartIndex = headerRowIndex + 1; // 0-indexed row where real data begins
+  while (
+    dataStartIndex < rawData.length &&
+    !rawData[dataStartIndex].some(cell => cell !== "" && cell !== null && cell !== undefined)
+  ) {
+    dataStartIndex++;
+  }
 
-  if (importLastRow < headerRowCount) {
+  const headerBlockRowCount = dataStartIndex; // 1-indexed count of rows (header + any blank spacer rows) to preserve verbatim
+
+  if (importLastRow < headerBlockRowCount) {
     throw new Error(
       `The source sheet "${CONFIG.sheets.import}" does not have the required ` +
       `header row(s) (expected to find "${requiredMarker}" within the first ` +
@@ -242,21 +257,21 @@ function runExportProcess() {
     );
   }
 
-  // 2. Clear export sheet and copy the header block (all rows up to and
-  //    including the detected header row) from RAWImport, preserving the
-  //    exact structure FMX expects.
+  // 2. Clear export sheet and copy the header block (header row(s) plus any
+  //    blank spacer row(s) immediately following) verbatim from RAWImport,
+  //    preserving the exact structure FMX expects.
   exportSheet.clear();
 
   importSheet
-    .getRange(1, 1, headerRowCount, importLastCol)
+    .getRange(1, 1, headerBlockRowCount, importLastCol)
     .copyTo(exportSheet.getRange(1, 1));
 
   // 3. Resolve column headers
   const rawHeaderRow = rawData[headerRowIndex].map(h => h ? h.toString().trim() : "");
 
-  // Drop any fully-blank spacer rows so they can never be matched/merged in
-  // as phantom records, and so row alignment can't drift from Equipment_Edit.
-  const rawDataRows = rawData.slice(headerRowIndex + 1)
+  // Data rows start after the header block (past any blank spacer rows), with
+  // a defensive filter for any further stray blank rows mixed into the data.
+  const rawDataRows = rawData.slice(dataStartIndex)
     .filter(row => row.some(cell => cell !== "" && cell !== null && cell !== undefined));
 
   const targetHeaders = rawHeaderRow;
@@ -310,7 +325,7 @@ function runExportProcess() {
   // 7. Write merged Equipment data to export sheet
   if (outputData.length > 0 && outputData[0].length > 0) {
     exportSheet.getRange(
-      headerRowCount + 1, 1,
+      headerBlockRowCount + 1, 1,
       outputData.length,
       outputData[0].length
     ).setValues(outputData);
